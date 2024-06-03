@@ -2,14 +2,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![allow(clippy::needless_pass_by_value)]
 
+mod audio;
+mod uiua_wrapper;
+
 use std::sync::{Arc, Mutex};
 
 use audio::{AudioApi, AudioApiImpl};
 use taurpc::Router;
 use uiua_wrapper::UiuaWrapper;
-
-mod audio;
-mod uiua_wrapper;
 
 #[taurpc::procedures(export_to = "../src/types.ts")]
 trait Api {
