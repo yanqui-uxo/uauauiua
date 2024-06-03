@@ -1,0 +1,34 @@
+{
+  "name": "uauauiua",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "taurpc": "^1.4.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.3.0",
+    "@tauri-apps/cli": "^1",
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@typescript-eslint/eslint-plugin": "^7.10.0",
+    "@typescript-eslint/parser": "^7.10.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "8.x",
+    "eslint-plugin-react": "^7.34.1",
+    "globals": "^15.3.0",
+    "typescript": "^5.0.2",
+    "typescript-eslint": "^7.10.0",
+    "vite": "^5.0.0",
+    "vite-plugin-eslint": "^1.8.1"
+  }
+}
