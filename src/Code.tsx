@@ -2,15 +2,11 @@ import {useState} from "react"
 
 import taurpc from "./proxy";
 
-function PlayerButtons({samples, handleError}: {samples: {[v: string]: number[]}, handleError: (e: unknown) => void}) {
+function PlayerButtons({samples}: {samples: {[v: string]: number[]}}) {
 	return <>
 		<button onClick={async () => {
-			try {
-				await taurpc.load_stack_sample();
-				await taurpc.play();
-			} catch (e) {
-				handleError(e);
-			}
+			await taurpc.load_stack_sample();
+			await taurpc.play();
 		}}>Play stack sample</button>
 		{Object.entries(samples).map(
 			([k]) => <button key={k} onClick={async () => {
@@ -23,26 +19,18 @@ function PlayerButtons({samples, handleError}: {samples: {[v: string]: number[]}
 	</>
 }
 
-export default function App() {
+export default function Code() {
 	const [code, setCode] = useState("");
 	const [samples, setSamples] = useState({});
-	const [error, setError] = useState("");
-
-	const handleError = (e: unknown) => setError(`${e}`);
-
 	return <>
 		<textarea value={code} onChange={e => setCode(e.target.value)} />
 		<button onClick={async () => {
 			const newCode = await taurpc.format_code(code);
 			setCode(newCode);
-			try {
-				await taurpc.run_code(newCode);
-			} catch (e) {
-				handleError(e);
-			}
+			await taurpc.run_code(newCode);
 			setSamples(await taurpc.var_samples());
 		}}>Run code</button>
-		<PlayerButtons samples={samples} handleError={handleError} />
-		<p>{error}</p>
+		<PlayerButtons samples={samples} />
+
 	</>
 }

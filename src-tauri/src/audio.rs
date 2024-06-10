@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
 
 use rodio::buffer::SamplesBuffer;
 use rodio::{OutputStreamHandle, Sink};
@@ -22,6 +22,8 @@ pub enum PlayerAction {
 pub struct Player {
     state: PlayerState,
     sink: Sink,
+    stack_sample: Vec<f32>,
+    bound_samples: HashMap<String, Vec<f32>>,
 }
 
 impl Player {
@@ -31,6 +33,8 @@ impl Player {
         Player {
             state: PlayerState::Stopped,
             sink,
+            stack_sample: Vec::new(),
+            bound_samples: HashMap::new(),
         }
     }
 
@@ -50,37 +54,23 @@ impl Player {
         }
     }
 
-    pub fn load_value(&mut self, value: &uiua::Value) -> Result<(), String> {
-        self.sink.clear();
-        let data: Vec<f32> = uiua::value_to_sample(value)?
-            .into_iter()
-            .flatten()
-            .collect();
-        self.sink
-            .append(SamplesBuffer::new(2, NativeSys.audio_sample_rate(), data));
+    pub fn load_from_code(&mut self, code: String, uiua: &mut UiuaWrapper) -> Result<(), String> {
+        println!("hey ho");
+        uiua.run_str(&code)?;
+        self.stack_sample = UiuaWrapper::value_to_sample(&uiua.pop("audio value")?)?;
+        self.bound_samples = uiua.bound_samples();
         Ok(())
     }
-}
 
-#[taurpc::procedures(path = "audio")]
-pub trait AudioApi {
-    async fn play_from_stack() -> Result<(), String>;
-}
-
-#[derive(Clone)]
-#[allow(clippy::module_name_repetitions)]
-pub struct AudioApiImpl {
-    pub player: Arc<Mutex<Player>>,
-    pub uiua: Arc<Mutex<UiuaWrapper>>,
-}
-
-#[taurpc::resolvers(export_to = "../src/types.ts")]
-impl AudioApi for AudioApiImpl {
-    async fn play_from_stack(self) -> Result<(), String> {
-        let mut uiua = self.uiua.lock().unwrap();
-        let mut player = self.player.lock().unwrap();
-        player.load_value(&uiua.pop("audio value")?)?;
-        player.handle_action(PlayerAction::Play);
-        Ok(())
+    fn load_sample(&mut self, sample: Vec<f32>) {
+        self.sink.clear();
+        self.sink
+            .append(SamplesBuffer::new(2, NativeSys.audio_sample_rate(), sample));
+    }
+    pub fn load_stack_sample(&mut self) {
+        self.load_sample(self.stack_sample.clone());
+    }
+    pub fn load_var_sample(&mut self, var: String) {
+        self.load_sample(self.bound_samples.get(&var).unwrap().clone());
     }
 }
