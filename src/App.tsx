@@ -1,48 +1,29 @@
 import {useState} from "react"
 
+import Wavesurfer from "wavesurfer.js";
+import WavesurferPlayer from "@wavesurfer/react";
+
 import taurpc from "./proxy";
 
-function PlayerButtons({samples, handleError}: {samples: {[v: string]: number[]}, handleError: (e: unknown) => void}) {
-	return <>
-		<button onClick={async () => {
-			try {
-				await taurpc.load_stack_sample();
-				await taurpc.play();
-			} catch (e) {
-				handleError(e);
-			}
-		}}>Play stack sample</button>
-		{Object.entries(samples).map(
-			([k]) => <button key={k} onClick={async () => {
-				await taurpc.load_var_sample(k);
-				await taurpc.play();
-			}}>
-				Play {k}
-			</button>
-		)}
-	</>
-}
-
 export default function App() {
-	const [code, setCode] = useState("");
-	const [samples, setSamples] = useState({});
+	const [code, setCode] = useState('P ~ "../prelude.ua"\n');
+	const [wavesurfer, setWavesurfer] = useState<Wavesurfer | null>(null);
 	const [error, setError] = useState("");
-
-	const handleError = (e: unknown) => setError(`${e}`);
 
 	return <>
 		<textarea value={code} onChange={e => setCode(e.target.value)} />
-		<button onClick={async () => {
-			const newCode = await taurpc.format_code(code);
-			setCode(newCode);
+		{wavesurfer && <button onClick={async () => {
 			try {
-				await taurpc.run_code(newCode);
+				const newCode = await taurpc.format_code(code);
+				setCode(newCode);
+				const data = await taurpc.run_code(newCode);
+				console.log(data);
+				wavesurfer.load(URL.createObjectURL(new Blob([new Uint8Array(data.stackWav)])));
 			} catch (e) {
-				handleError(e);
+				setError(`Error: ${e} (time: ${Date.now()})`);
 			}
-			setSamples(await taurpc.var_samples());
-		}}>Run code</button>
-		<PlayerButtons samples={samples} handleError={handleError} />
+		}}>Run code</button>}
+		<WavesurferPlayer onInit={ws => setWavesurfer(ws)} onInteraction={ws => ws.play()} onFinish={ws => ws.setTime(0)} />
 		<p>{error}</p>
 	</>
 }

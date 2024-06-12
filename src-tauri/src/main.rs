@@ -2,32 +2,26 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![allow(clippy::needless_pass_by_value)]
 
-mod audio;
 mod uiua_wrapper;
 
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
+use std::sync::{Arc, Mutex};
+
+use uiua::{
+    format::{format_str, FormatConfig},
+    NativeSys, SysBackend,
 };
 
-use uiua::format::{format_str, FormatConfig};
-
-use uiua_wrapper::UiuaWrapper;
+use uiua_wrapper::{AudioData, UiuaWrapper};
 
 #[taurpc::procedures(export_to = "../src/types.ts")]
 trait Api {
     async fn format_code(code: String) -> Result<String, String>;
-    async fn run_code(code: String) -> Result<(), String>;
-
-    async fn var_samples() -> HashMap<String, Vec<f32>>;
-    async fn load_stack_sample() -> ();
-    async fn load_var_sample(var: String) -> ();
-    async fn play() -> ();
+    async fn run_code(code: String) -> Result<AudioData, String>;
+    async fn sample_rate() -> u32;
 }
 
 #[derive(Clone)]
 struct ApiImpl {
-    player: Arc<Mutex<audio::Player>>,
     uiua: Arc<Mutex<UiuaWrapper>>,
 }
 
@@ -40,38 +34,20 @@ impl Api for ApiImpl {
         }
     }
 
-    async fn run_code(self, code: String) -> Result<(), String> {
-        self.player
-            .lock()
-            .unwrap()
-            .load_from_code(code, &mut self.uiua.lock().unwrap())
+    async fn run_code(self, code: String) -> Result<AudioData, String> {
+        self.uiua.lock().unwrap().run_str(&code)
     }
 
-    async fn var_samples(self) -> HashMap<String, Vec<f32>> {
-        self.uiua.lock().unwrap().bound_samples()
-    }
-    async fn load_stack_sample(self) {
-        self.player.lock().unwrap().load_stack_sample();
-    }
-    async fn load_var_sample(self, var: String) {
-        self.player.lock().unwrap().load_var_sample(var);
-    }
-    async fn play(self) {
-        self.player
-            .lock()
-            .unwrap()
-            .handle_action(audio::PlayerAction::Play);
+    async fn sample_rate(self) -> u32 {
+        NativeSys.audio_sample_rate()
     }
 }
 
 #[tokio::main]
 async fn main() {
-    let (_stream, handle) = rodio::OutputStream::try_default().unwrap();
-
     tauri::Builder::default()
         .invoke_handler(taurpc::create_ipc_handler(
             ApiImpl {
-                player: Arc::new(Mutex::new(audio::Player::new(&handle))),
                 uiua: Arc::new(Mutex::new(UiuaWrapper::new())),
             }
             .into_handler(),
