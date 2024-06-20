@@ -1,29 +1,41 @@
-import {useState} from "react"
+import "@mantine/core/styles.css";
 
-import Wavesurfer from "wavesurfer.js";
-import WavesurferPlayer from "@wavesurfer/react";
+import { useState } from "react";
+
+import { Button, MantineProvider, Textarea } from "@mantine/core";
 
 import taurpc from "./proxy";
+import Player from "./Player";
+import { type Clip } from "./types";
 
 export default function App() {
-	const [code, setCode] = useState('P ~ "../prelude.ua"\n');
-	const [wavesurfer, setWavesurfer] = useState<Wavesurfer | null>(null);
-	const [error, setError] = useState("");
+  const [code, setCode] = useState('P ~ "../prelude.ua"\n');
+  const [clips, setClips] = useState<Clip[] | null>(null);
+  const [error, setError] = useState("");
 
-	return <>
-		<textarea value={code} onChange={e => setCode(e.target.value)} />
-		{wavesurfer && <button onClick={async () => {
-			try {
-				const newCode = await taurpc.format_code(code);
-				setCode(newCode);
-				const data = await taurpc.run_code(newCode);
-				console.log(data);
-				wavesurfer.load(URL.createObjectURL(new Blob([new Uint8Array(data.stackWav)])));
-			} catch (e) {
-				setError(`Error: ${e} (time: ${Date.now()})`);
-			}
-		}}>Run code</button>}
-		<WavesurferPlayer onInit={ws => setWavesurfer(ws)} onInteraction={ws => ws.play()} onFinish={ws => ws.setTime(0)} />
-		<p>{error}</p>
-	</>
+  return (
+    <MantineProvider forceColorScheme="dark">
+      <Textarea
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+        resize="both"
+      />
+      <Button
+        onClick={async () => {
+          try {
+            const newCode = await taurpc.format_code(code);
+            setCode(newCode);
+            const data = await taurpc.run_code(newCode);
+            setClips(data.stackClips);
+          } catch (e) {
+            setError(`Error: ${e} (time: ${Date.now()})`);
+          }
+        }}
+      >
+        Run code
+      </Button>
+      {clips && <Player clips={clips} />}
+      <p>{error}</p>
+    </MantineProvider>
+  );
 }

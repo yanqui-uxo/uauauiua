@@ -1,3 +1,3 @@
-import {createTauRPCProxy} from "./types.ts";
+import { createTauRPCProxy } from "./types.ts";
 const taurpc = await createTauRPCProxy();
 export default taurpc;
