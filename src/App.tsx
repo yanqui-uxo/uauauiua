@@ -5,12 +5,14 @@ import { useState } from "react";
 import { Button, MantineProvider, Textarea } from "@mantine/core";
 
 import taurpc from "./proxy";
-import Player from "./Player";
-import { type Clip } from "./types";
+import StackPlayer from "./StackPlayer";
+import { type AudioData } from "./types";
+import VarPlayer from "./VarPlayer";
 
 export default function App() {
   const [code, setCode] = useState('P ~ "../prelude.ua"\n');
-  const [clips, setClips] = useState<Clip[] | null>(null);
+  const [audioData, setAudioData] = useState<AudioData | null>(null);
+  const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
 
   return (
@@ -22,19 +24,27 @@ export default function App() {
       />
       <Button
         onClick={async () => {
+          setRunning(true);
+          setError("");
           try {
             const newCode = await taurpc.format_code(code);
             setCode(newCode);
-            const data = await taurpc.run_code(newCode);
-            setClips(data.stackClips);
+            setAudioData(await taurpc.run_code(newCode));
           } catch (e) {
             setError(`Error: ${e} (time: ${Date.now()})`);
           }
+          setRunning(false);
         }}
       >
         Run code
       </Button>
-      {clips && <Player clips={clips} />}
+      {running && <p>Running...</p>}
+      {audioData && !running && (
+        <>
+          <StackPlayer clips={audioData.stackClips} />
+          <VarPlayer clips={audioData.varClips} />
+        </>
+      )}
       <p>{error}</p>
     </MantineProvider>
   );
