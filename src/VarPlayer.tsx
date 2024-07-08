@@ -12,7 +12,7 @@ const VarPlayer = memo(function VarPlayer({
   return Object.entries(clips).map(([name, clip]) => (
     <>
       <p>{name}:</p>
-      <CustomWavesurferPlayer clip={clip}></CustomWavesurferPlayer>
+      <CustomWavesurferPlayer key={name} clip={clip}></CustomWavesurferPlayer>
     </>
   ));
 });

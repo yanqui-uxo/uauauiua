@@ -3,55 +3,63 @@
 #![allow(clippy::needless_pass_by_value)]
 
 mod uiua_wrapper;
+mod utility;
+mod watcher_wrapper;
 
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
-use uiua::{
-    format::{format_str, FormatConfig},
-    NativeSys, SysBackend,
+use tauri::{CustomMenuItem, Manager, Menu, MenuEntry};
+use taurpc::create_ipc_handler;
+use utility::{
+    create_file, load_main, pick_folder, Api, ApiImpl, MAIN_FILE_NAME, PRELUDE_FILE_NAME,
 };
-
-use uiua_wrapper::{AudioData, UiuaWrapper};
-
-#[taurpc::procedures(export_to = "../src/types.ts")]
-trait Api {
-    async fn format_code(code: String) -> Result<String, String>;
-    async fn run_code(code: String) -> Result<AudioData, String>;
-    async fn sample_rate() -> u32;
-}
-
-#[derive(Clone)]
-struct ApiImpl {
-    uiua: Arc<Mutex<UiuaWrapper>>,
-}
-
-#[taurpc::resolvers]
-impl Api for ApiImpl {
-    async fn format_code(self, code: String) -> Result<String, String> {
-        match format_str(&code, &FormatConfig::default().with_trailing_newline(false)) {
-            Ok(out) => Ok(out.output),
-            Err(e) => Err(e.message()),
-        }
-    }
-
-    async fn run_code(self, code: String) -> Result<AudioData, String> {
-        self.uiua.lock().unwrap().run_str(&code)
-    }
-
-    async fn sample_rate(self) -> u32 {
-        NativeSys.audio_sample_rate()
-    }
-}
+use watcher_wrapper::WatcherWrapper;
 
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
-        .invoke_handler(taurpc::create_ipc_handler(
-            ApiImpl {
-                uiua: Arc::new(Mutex::new(UiuaWrapper::new())),
+        .invoke_handler(create_ipc_handler(ApiImpl.into_handler()))
+        .setup(|app| {
+            app.manage(Mutex::new(WatcherWrapper::new(app.handle())));
+            Ok(())
+        })
+        .menu(Menu::with_items([
+            MenuEntry::CustomItem(CustomMenuItem::new("new", "New")),
+            MenuEntry::CustomItem(CustomMenuItem::new("open", "Open")),
+        ]))
+        .on_menu_event(|e| {
+            let app_handle = e.window().app_handle();
+            match e.menu_item_id() {
+                "new" => {
+                    pick_folder(move |path| {
+                        create_file(&path.join(MAIN_FILE_NAME));
+
+                        let prelude_path = path.join(PRELUDE_FILE_NAME);
+                        create_file(&prelude_path);
+                        std::fs::write(
+                            path.join(PRELUDE_FILE_NAME),
+                            include_str!("../../prelude.ua"),
+                        )
+                        .unwrap();
+
+                        app_handle
+                            .state::<Mutex<WatcherWrapper>>()
+                            .lock()
+                            .unwrap()
+                            .watch(path);
+                    });
+                }
+                "open" => pick_folder(move |path| {
+                    load_main(path.clone(), e.window().app_handle());
+                    app_handle
+                        .state::<Mutex<WatcherWrapper>>()
+                        .lock()
+                        .unwrap()
+                        .watch(path);
+                }),
+                other => panic!("Unexpected event id '{other}'"),
             }
-            .into_handler(),
-        ))
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

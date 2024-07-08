@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use uiua::{value_to_audio_channels, value_to_wav_bytes, NativeSys, SysBackend, Uiua};
 
 #[derive(Clone, serde::Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-struct Clip {
+pub struct Clip {
     wav: Vec<u8>,
     peaks: Vec<Vec<f64>>,
 }
@@ -25,13 +24,14 @@ fn value_to_clip(value: &uiua::Value) -> Result<Clip, String> {
 #[derive(Clone)]
 pub struct UiuaWrapper(Uiua);
 
+// TODO: remove redundancy?
 impl UiuaWrapper {
     fn new_uiua() -> Uiua {
         Uiua::with_native_sys()
     }
 
     pub fn new() -> Self {
-        UiuaWrapper(UiuaWrapper::new_uiua())
+        Self(Self::new_uiua())
     }
 
     // resets before running code

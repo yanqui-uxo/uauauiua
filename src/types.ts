@@ -4,11 +4,11 @@ export type AudioData = { stackClips: Clip[]; varClips: { [key in string]: Clip 
 
 export type Clip = { wav: number[]; peaks: number[][] }
 
-export type TauRpcApiInputTypes = { proc_name: "format_code"; input_type: { __taurpc_type: string } } | { proc_name: "run_code"; input_type: { __taurpc_type: string } } | { proc_name: "sample_rate"; input_type: null }
+export type TauRpcApiInputTypes = { proc_name: "file_loaded"; input_type: { __taurpc_type: AudioData } } | { proc_name: "error"; input_type: { __taurpc_type: string } }
 
-export type TauRpcApiOutputTypes = { proc_name: "format_code"; output_type: string } | { proc_name: "run_code"; output_type: AudioData } | { proc_name: "sample_rate"; output_type: number }
+export type TauRpcApiOutputTypes = { proc_name: "file_loaded"; output_type: null } | { proc_name: "error"; output_type: null }
 
-const ARGS_MAP = {"":"{\"format_code\":[\"code\"],\"sample_rate\":[],\"run_code\":[\"code\"]}"}
+const ARGS_MAP = {"":"{\"error\":[\"error\"],\"file_loaded\":[\"clips\"]}"}
 import { createTauRPCProxy as createProxy } from "taurpc"
 
 export const createTauRPCProxy = () => createProxy<Router>(ARGS_MAP)

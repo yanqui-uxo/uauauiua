@@ -9,7 +9,6 @@ import Wavesurfer from "wavesurfer.js";
 import CustomWavesurferPlayer from "./CustomWavesurferPlayer";
 import { type Clip } from "./types";
 
-// TODO: refactor with CustomWavesurferPlayer
 function StackPlayerBase({ clips }: { clips: Clip[] }) {
   const [wavesurfers, wavesurfersHandlers] = useListState<Wavesurfer | null>(
     Array(clips.length).fill(null)
