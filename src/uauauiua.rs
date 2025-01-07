@@ -16,6 +16,7 @@ pub struct Uauauiua {
 static KEY_FUNCTION_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^On([A-Z])Press$").unwrap());
 
+// TODO: convert to 2 channels if rank 1, ensure 2 channels if rank 2
 fn value_to_source(value: &uiua::Value) -> anyhow::Result<SamplesBuffer<f32>> {
     let mut array = match value {
         uiua::Value::Byte(x) => Ok(x.convert_ref::<f64>()),
