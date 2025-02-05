@@ -2,11 +2,9 @@ use crate::recording::{CHANNEL_NUM, SAMPLE_RATE};
 
 use anyhow::{anyhow, ensure};
 use crossterm::event::KeyCode;
-use notify::{recommended_watcher, RecommendedWatcher, RecursiveMode, Watcher};
 use regex::Regex;
 use rodio::buffer::SamplesBuffer;
-use std::{collections::HashMap, path::Path, sync::LazyLock};
-use tokio::sync::watch::{self, Ref};
+use std::{collections::HashMap, sync::LazyLock};
 use uiua::Uiua;
 
 pub const MAIN_PATH: &str = "main.ua";
@@ -37,17 +35,18 @@ fn value_to_source(value: &uiua::Value) -> anyhow::Result<SamplesBuffer<f32>> {
     Ok(SamplesBuffer::new(CHANNEL_NUM, *SAMPLE_RATE, array_vec))
 }
 
-pub struct UiuaExtensionData {
+#[derive(Default)]
+pub struct Data {
     key_sources: HashMap<KeyCode, SamplesBuffer<f32>>,
 }
 
-impl UiuaExtensionData {
+impl Data {
     pub fn key_sources(&self) -> &HashMap<KeyCode, SamplesBuffer<f32>> {
         &self.key_sources
     }
 }
 
-impl From<Uiua> for UiuaExtensionData {
+impl From<Uiua> for Data {
     fn from(value: Uiua) -> Self {
         let key_sources = value
             .bound_values()
@@ -68,41 +67,41 @@ impl From<Uiua> for UiuaExtensionData {
                 ))
             })
             .collect();
-        UiuaExtensionData { key_sources }
+        Data { key_sources }
     }
 }
 
+#[derive(Default)]
 pub struct UiuaExtension {
-    data_rx: watch::Receiver<anyhow::Result<UiuaExtensionData>>,
-    watcher: RecommendedWatcher,
+    data: Data,
     pub new_values: HashMap<String, uiua::Value>,
 }
 
 impl UiuaExtension {
-    pub fn new() -> Self {
-        let (data_tx, data_rx) = watch::channel(Self::load());
-        let mut watcher = recommended_watcher(move |e: Result<notify::Event, _>| {
-            if let notify::EventKind::Modify(_) = e.unwrap().kind {
-                data_tx.send(Self::load()).expect("should have sent data");
-            }
-        })
-        .expect("should have initialized file watcher");
-        watcher.watch(Path::new(MAIN_PATH), RecursiveMode::NonRecursive);
-
-        UiuaExtension {
-            data_rx,
-            watcher,
-            new_values: HashMap::new(),
-        }
-    }
-
-    fn load() -> anyhow::Result<UiuaExtensionData> {
+    pub fn load(&mut self) -> anyhow::Result<()> {
         let mut uiua = Uiua::with_safe_sys();
-        uiua.run_file(MAIN_PATH)?;
-        Ok(uiua.into())
+        uiua.compile_run(|comp| {
+            comp.load_file(MAIN_PATH)?;
+
+            self.new_values.iter().for_each(|(k, v)| {
+                let pushed_value = v.clone();
+
+                // No method to bind a value, apparently!
+                // TODO: replace with .expect()
+                comp.create_bind_function(k, (0, 1), move |u| {
+                    u.push(pushed_value.clone());
+                    Ok(())
+                })
+                .unwrap();
+            });
+
+            Ok(comp)
+        })?;
+        self.data = uiua.into();
+        Ok(())
     }
 
-    fn data(&self) -> Ref<anyhow::Result<UiuaExtensionData>> {
-        self.data_rx.borrow()
+    pub fn data(&self) -> &Data {
+        &self.data
     }
 }

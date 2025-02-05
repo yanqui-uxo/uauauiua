@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::ensure;
-use rodio::{buffer::SamplesBuffer, Source};
+use rodio::Source;
 use uiua::{NativeSys, SysBackend};
 
 type BoxedSource = Box<dyn Source<Item = f32> + Send>;
@@ -33,6 +33,7 @@ enum MixerEvent {
 pub struct MixerController {
     event_tx: Sender<MixerEvent>,
     recording_rx: Receiver<f32>,
+    // TODO: do something with this field or remove it
     is_recording: bool,
 }
 
@@ -51,11 +52,11 @@ impl MixerController {
     {
         ensure!(
             source.channels() == CHANNEL_NUM,
-            "incorrect number of channels"
+            format!("incorrect number of channels; expected {CHANNEL_NUM}")
         );
         ensure!(
             source.sample_rate() == *SAMPLE_RATE,
-            "incorrect sample rate"
+            format!("incorrect sample rate; expected {}", *SAMPLE_RATE)
         );
         self.event_tx
             .send(MixerEvent::Source(Box::new(source)))
@@ -72,10 +73,6 @@ impl MixerController {
         self.event_tx.send(MixerEvent::Stop).unwrap();
         self.is_recording = false;
         self.recording_rx.try_iter().collect()
-    }
-
-    pub fn is_recording(&self) -> bool {
-        self.is_recording
     }
 }
 
@@ -110,14 +107,16 @@ impl Iterator for Mixer {
             }
             MixerEvent::Stop => {
                 self.is_recording = false;
+                self.sources.clear();
             }
         });
 
-        // FIXME: noise appears to be coming from here. why?
+        // noise appears to be coming from here. why?
         let sample = self
             .sources
             .iter_mut()
-            .fold(0., |acc, s| acc + s.next().unwrap_or_default());
+            .map(|s| s.next().unwrap_or_default())
+            .sum();
 
         if self.is_recording {
             self.recording_tx.send(sample).unwrap();
