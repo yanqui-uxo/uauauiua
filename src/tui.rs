@@ -3,7 +3,13 @@ use std::mem;
 use crate::uauauiua::Uauauiua;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use ratatui::{buffer::Buffer, layout::Rect, text::Text, widgets::Widget, DefaultTerminal};
+use ratatui::{
+    buffer::Buffer,
+    layout::Rect,
+    text::{Line, Text},
+    widgets::Widget,
+    DefaultTerminal,
+};
 
 enum UauauiuaMode {
     Start,
@@ -14,25 +20,33 @@ enum UauauiuaMode {
 pub struct Tui {
     uauauiua: Uauauiua,
     mode: UauauiuaMode,
+    last_error: Option<anyhow::Error>,
     input: String,
     exiting: bool,
 }
 
-const START_RECORDING_KEY: KeyCode = KeyCode::Char('r');
+const RELOAD_KEY: KeyCode = KeyCode::Char('r');
+const START_RECORDING_KEY: KeyCode = KeyCode::Enter;
 const JAM_KEY: KeyCode = KeyCode::Char('j');
 const STOP_KEY: KeyCode = KeyCode::Esc;
 const EXIT_KEY: KeyCode = KeyCode::Esc;
 
 impl Tui {
-    pub fn run(mut terminal: DefaultTerminal) {
-        let uauauiua = Uauauiua::new();
+    fn reload(&mut self) {
+        if let Err(e) = self.uauauiua.load() {
+            self.last_error = Some(e);
+        }
+    }
 
+    pub fn run(mut terminal: DefaultTerminal) {
         let mut tui = Self {
-            uauauiua,
+            uauauiua: Uauauiua::new(),
             mode: UauauiuaMode::Start,
+            last_error: None,
             input: String::new(),
             exiting: false,
         };
+        tui.reload();
 
         loop {
             terminal
@@ -57,6 +71,9 @@ impl Tui {
         }
 
         match (&self.mode, key) {
+            (UauauiuaMode::Start, key) if key == RELOAD_KEY => {
+                self.reload();
+            }
             (UauauiuaMode::Start, key) if key == START_RECORDING_KEY => {
                 self.uauauiua.start_recording();
                 self.mode = UauauiuaMode::Record;
@@ -96,13 +113,18 @@ impl Tui {
 
 impl Widget for &Tui {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        match self.mode {
-            UauauiuaMode::Start => Text::raw(format!(
-                "Press {START_RECORDING_KEY} to start recording or {EXIT_KEY} to exit"
+        let l = match self.mode {
+            UauauiuaMode::Start => Line::raw(format!(
+                "Press {START_RECORDING_KEY} to start recording, {RELOAD_KEY} to reload the file, or {EXIT_KEY} to exit"
             )),
-            UauauiuaMode::Record => Text::raw(format!("Press {STOP_KEY} to stop recording")),
-            UauauiuaMode::Jam => Text::raw(format!("Press {STOP_KEY} to stop jamming")),
-            UauauiuaMode::Save(_) => Text::raw(format!("Enter name: {}_", self.input)),
+            UauauiuaMode::Record => Line::raw(format!("Press {STOP_KEY} to stop recording")),
+            UauauiuaMode::Jam => Line::raw(format!("Press {STOP_KEY} to stop jamming")),
+            UauauiuaMode::Save(_) => Line::raw(format!("Enter name: {}_", self.input)),
+        };
+
+        match &self.last_error {
+            Some(e) => Text::from(vec![l, Line::raw(e.to_string())]),
+            None => Text::from(l),
         }
         .render(area, buf);
     }
