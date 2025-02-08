@@ -41,11 +41,11 @@ impl Uauauiua {
     }
 
     pub fn start_recording(&mut self) {
-        self.mixer_controller.start();
+        self.mixer_controller.start_recording();
     }
 
     pub fn stop_recording(&mut self) -> Vec<f32> {
-        self.mixer_controller.stop()
+        self.mixer_controller.stop_recording()
     }
 
     pub fn add_key_source_to_mixer(&mut self, key: KeyCode) -> anyhow::Result<()> {
