@@ -91,6 +91,7 @@ impl Tui {
                 self.mode = UauauiuaMode::Start;
             }
             (UauauiuaMode::Record | UauauiuaMode::Jam, key) => {
+                // TODO: do something with potential error
                 let _ = self.uauauiua.add_key_source_to_mixer(key);
             }
             (UauauiuaMode::Save(v), KeyCode::Enter) => {
