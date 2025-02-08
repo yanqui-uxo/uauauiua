@@ -9,10 +9,10 @@ use rodio::{OutputStream, OutputStreamHandle, Sink};
 
 pub struct Uauauiua {
     uiua_extension: UiuaExtension,
+    mixer_controller: MixerController,
     _stream: OutputStream,
     _stream_handle: OutputStreamHandle,
     _sink: Sink,
-    mixer_controller: MixerController,
 }
 
 impl Uauauiua {
@@ -23,14 +23,12 @@ impl Uauauiua {
         let sink = Sink::try_new(&stream_handle).expect("should have initialized audio sink");
         sink.append(mixer);
 
-        // TODO: file watcher
-
         Uauauiua {
             uiua_extension: UiuaExtension::default(),
+            mixer_controller,
             _stream: stream,
             _stream_handle: stream_handle,
             _sink: sink,
-            mixer_controller,
         }
     }
 

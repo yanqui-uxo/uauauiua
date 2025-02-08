@@ -7,7 +7,8 @@ use ratatui::{buffer::Buffer, layout::Rect, text::Text, widgets::Widget, Default
 
 enum UauauiuaMode {
     Start,
-    Recording,
+    Record,
+    Jam,
     Save(Vec<f32>),
 }
 pub struct Tui {
@@ -18,15 +19,14 @@ pub struct Tui {
 }
 
 const START_RECORDING_KEY: KeyCode = KeyCode::Char('r');
-const STOP_RECORDING_KEY: KeyCode = KeyCode::Esc;
+const JAM_KEY: KeyCode = KeyCode::Char('j');
+const STOP_KEY: KeyCode = KeyCode::Esc;
 const EXIT_KEY: KeyCode = KeyCode::Esc;
 
 impl Tui {
     pub fn run(mut terminal: DefaultTerminal) {
-        let mut uauauiua = Uauauiua::new();
+        let uauauiua = Uauauiua::new();
 
-        // TODO: handle error properly
-        uauauiua.load().unwrap();
         let mut tui = Self {
             uauauiua,
             mode: UauauiuaMode::Start,
@@ -59,15 +59,21 @@ impl Tui {
         match (&self.mode, key) {
             (UauauiuaMode::Start, key) if key == START_RECORDING_KEY => {
                 self.uauauiua.start_recording();
-                self.mode = UauauiuaMode::Recording;
+                self.mode = UauauiuaMode::Record;
+            }
+            (UauauiuaMode::Start, key) if key == JAM_KEY => {
+                self.mode = UauauiuaMode::Jam;
             }
             (UauauiuaMode::Start, key) if key == EXIT_KEY => {
                 self.exiting = true;
             }
-            (UauauiuaMode::Recording, key) if key == STOP_RECORDING_KEY => {
+            (UauauiuaMode::Record, key) if key == STOP_KEY => {
                 self.mode = UauauiuaMode::Save(self.uauauiua.stop_recording());
             }
-            (UauauiuaMode::Recording, key) => {
+            (UauauiuaMode::Jam, key) if key == STOP_KEY => {
+                self.mode = UauauiuaMode::Start;
+            }
+            (UauauiuaMode::Record | UauauiuaMode::Jam, key) => {
                 let _ = self.uauauiua.add_key_source_to_mixer(key);
             }
             (UauauiuaMode::Save(v), KeyCode::Enter) => {
@@ -94,9 +100,8 @@ impl Widget for &Tui {
             UauauiuaMode::Start => Text::raw(format!(
                 "Press {START_RECORDING_KEY} to start recording or {EXIT_KEY} to exit"
             )),
-            UauauiuaMode::Recording => {
-                Text::raw(format!("Press {STOP_RECORDING_KEY} to stop recording"))
-            }
+            UauauiuaMode::Record => Text::raw(format!("Press {STOP_KEY} to stop recording")),
+            UauauiuaMode::Jam => Text::raw(format!("Press {STOP_KEY} to stop jamming")),
             UauauiuaMode::Save(_) => Text::raw(format!("Enter name: {}_", self.input)),
         }
         .render(area, buf);
