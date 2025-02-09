@@ -1,3 +1,4 @@
+use crate::limited_backend::LimitedBackend;
 use crate::recording::{CHANNEL_NUM, SAMPLE_RATE};
 
 use anyhow::{anyhow, ensure};
@@ -79,7 +80,7 @@ pub struct UiuaExtension {
 
 impl UiuaExtension {
     pub fn load(&mut self) -> anyhow::Result<()> {
-        let mut uiua = Uiua::with_safe_sys();
+        let mut uiua = Uiua::with_backend(LimitedBackend);
         uiua.compile_run(|comp| {
             comp.load_file(MAIN_PATH)?;
 
