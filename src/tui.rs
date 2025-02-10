@@ -1,5 +1,4 @@
 use std::mem;
-use std::sync::mpsc::{channel, Sender};
 
 use crate::uauauiua::Uauauiua;
 
@@ -20,10 +19,6 @@ enum Mode {
     Save(Vec<f32>),
 }
 
-enum TuiEvent {
-    LoadingTransition,
-    Reload,
-}
 pub struct Tui {
     uauauiua: Uauauiua,
     mode: Mode,
@@ -52,30 +47,16 @@ impl Default for Tui {
 
 impl Tui {
     pub fn run(mut self, mut terminal: DefaultTerminal) {
-        let (event_tx, event_rx) = channel();
-
         self.reload();
 
         loop {
             self.draw(&mut terminal);
-            if let Event::Key(e) = event::read().expect("should have handled terminal event") {
-                if e.kind == KeyEventKind::Press {
-                    self.handle_key_press(e, &event_tx);
-                }
-            }
 
             self.last_error = None;
 
-            while let Ok(e) = event_rx.try_recv() {
-                match e {
-                    TuiEvent::LoadingTransition => {
-                        self.mode = Mode::Loading;
-                        self.draw(&mut terminal);
-                    }
-                    TuiEvent::Reload => {
-                        self.reload();
-                        self.mode = Mode::Start;
-                    }
+            if let Event::Key(e) = event::read().expect("should have handled terminal event") {
+                if e.kind == KeyEventKind::Press {
+                    self.handle_key_press(e, &mut terminal);
                 }
             }
 
@@ -97,7 +78,7 @@ impl Tui {
             .expect("should have drawn terminal");
     }
 
-    fn handle_key_press(&mut self, key_event: KeyEvent, event_tx: &Sender<TuiEvent>) {
+    fn handle_key_press(&mut self, key_event: KeyEvent, terminal: &mut DefaultTerminal) {
         let key = key_event.code;
 
         if key_event.modifiers.contains(KeyModifiers::CONTROL) && key == KeyCode::Char('c') {
@@ -106,8 +87,10 @@ impl Tui {
 
         match (&self.mode, key) {
             (Mode::Start, key) if key == RELOAD_KEY => {
-                event_tx.send(TuiEvent::LoadingTransition).unwrap();
-                event_tx.send(TuiEvent::Reload).unwrap();
+                self.mode = Mode::Loading;
+                self.draw(terminal);
+                self.reload();
+                self.mode = Mode::Start;
             }
             (Mode::Start, key) if key == START_RECORDING_KEY => {
                 self.uauauiua.start_recording();
