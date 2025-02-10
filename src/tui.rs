@@ -27,9 +27,9 @@ pub struct Tui {
     exiting: bool,
 }
 
-const RELOAD_KEY: KeyCode = KeyCode::Char('r');
 const START_RECORDING_KEY: KeyCode = KeyCode::Enter;
 const JAM_KEY: KeyCode = KeyCode::Char('j');
+const RELOAD_KEY: KeyCode = KeyCode::Char('r');
 const STOP_KEY: KeyCode = KeyCode::Esc;
 const EXIT_KEY: KeyCode = KeyCode::Esc;
 
@@ -86,18 +86,18 @@ impl Tui {
         }
 
         match (&self.mode, key) {
-            (Mode::Start, key) if key == RELOAD_KEY => {
-                self.mode = Mode::Loading;
-                self.draw(terminal);
-                self.reload();
-                self.mode = Mode::Start;
-            }
             (Mode::Start, key) if key == START_RECORDING_KEY => {
                 self.uauauiua.start_recording();
                 self.mode = Mode::Record;
             }
             (Mode::Start, key) if key == JAM_KEY => {
                 self.mode = Mode::Jam;
+            }
+            (Mode::Start, key) if key == RELOAD_KEY => {
+                self.mode = Mode::Loading;
+                self.draw(terminal);
+                self.reload();
+                self.mode = Mode::Start;
             }
             (Mode::Start, key) if key == EXIT_KEY => {
                 self.exiting = true;
@@ -135,7 +135,7 @@ impl Widget for &Tui {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let l = match self.mode {
             Mode::Start => Line::raw(format!(
-                "Press {START_RECORDING_KEY} to start recording, {RELOAD_KEY} to reload the file, {JAM_KEY} to enter jam mode, or {EXIT_KEY} to exit"
+                "Press {START_RECORDING_KEY} to start recording, {JAM_KEY} to enter jam mode, {RELOAD_KEY} to reload the file, or {EXIT_KEY} to exit"
             )),
             Mode::Loading => Line::raw("Loading..."),
             Mode::Record => Line::raw(format!("Press {STOP_KEY} to stop recording")),
