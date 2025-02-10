@@ -8,6 +8,6 @@ use tui::Tui;
 
 fn main() {
     let terminal = ratatui::init();
-    Tui::run(terminal);
+    Tui::default().run(terminal);
     ratatui::restore();
 }

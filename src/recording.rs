@@ -69,7 +69,7 @@ impl MixerController {
         self.is_recording = true;
     }
 
-    pub fn stop_recording(&mut self) -> Vec<f32> {
+    pub fn stop_recording_and_playback(&mut self) -> Vec<f32> {
         self.event_tx.send(MixerEvent::Stop).unwrap();
         self.is_recording = false;
         self.recording_rx.try_iter().collect()
