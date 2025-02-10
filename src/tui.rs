@@ -54,9 +54,15 @@ impl Tui {
 
             self.last_error = None;
 
-            if let Event::Key(e) = event::read().expect("should have handled terminal event") {
-                if e.kind == KeyEventKind::Press {
-                    self.handle_key_press(e, &mut terminal);
+            loop {
+                if let Event::Key(e) = event::read().expect("should have handled terminal event") {
+                    if e.kind == KeyEventKind::Press {
+                        self.handle_key_press(e, &mut terminal);
+                        break;
+                    }
+                }
+                if self.exiting {
+                    break;
                 }
             }
 
