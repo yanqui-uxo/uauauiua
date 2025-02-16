@@ -36,73 +36,42 @@ fn value_to_source(value: &uiua::Value) -> anyhow::Result<SamplesBuffer<f32>> {
     Ok(SamplesBuffer::new(CHANNEL_NUM, *SAMPLE_RATE, array_vec))
 }
 
-#[derive(Default)]
-pub struct Data {
-    key_sources: HashMap<KeyCode, SamplesBuffer<f32>>,
-}
-
-impl Data {
-    pub fn key_sources(&self) -> &HashMap<KeyCode, SamplesBuffer<f32>> {
-        &self.key_sources
-    }
-}
-
-impl From<Uiua> for Data {
-    fn from(value: Uiua) -> Self {
-        let key_sources = value
-            .bound_values()
-            .into_iter()
-            .filter_map(|(name, v)| {
-                Some((
-                    KeyCode::Char(
-                        KEY_FUNCTION_REGEX
-                            .captures(&name)?
-                            .get(1)?
-                            .as_str()
-                            .chars()
-                            .next()
-                            .unwrap()
-                            .to_ascii_lowercase(),
-                    ),
-                    value_to_source(&v).ok()?,
-                ))
-            })
-            .collect();
-        Data { key_sources }
-    }
+// TODO: handle errors from value_to_source
+fn get_key_sources(uiua: &Uiua) -> HashMap<KeyCode, SamplesBuffer<f32>> {
+    uiua.bound_values()
+        .into_iter()
+        .filter_map(|(name, v)| {
+            Some((
+                KeyCode::Char(
+                    KEY_FUNCTION_REGEX
+                        .captures(&name)?
+                        .get(1)?
+                        .as_str()
+                        .chars()
+                        .next()
+                        .unwrap()
+                        .to_ascii_lowercase(),
+                ),
+                value_to_source(&v).ok()?,
+            ))
+        })
+        .collect()
 }
 
 #[derive(Default)]
 pub struct UiuaExtension {
-    data: Data,
-    pub new_values: HashMap<String, uiua::Value>,
+    key_sources: HashMap<KeyCode, SamplesBuffer<f32>>,
 }
 
 impl UiuaExtension {
     pub fn load(&mut self) -> anyhow::Result<()> {
         let mut uiua = Uiua::with_backend(LimitedBackend);
-        uiua.compile_run(|comp| {
-            comp.load_file(MAIN_PATH)?;
-
-            self.new_values.iter().for_each(|(k, v)| {
-                let pushed_value = v.clone();
-
-                // No method to bind a value, apparently!
-                // TODO: replace with .expect()
-                comp.create_bind_function(k, (0, 1), move |u| {
-                    u.push(pushed_value.clone());
-                    Ok(())
-                })
-                .unwrap();
-            });
-
-            Ok(comp)
-        })?;
-        self.data = uiua.into();
+        uiua.run_file(MAIN_PATH)?;
+        self.key_sources = get_key_sources(&uiua);
         Ok(())
     }
 
-    pub fn data(&self) -> &Data {
-        &self.data
+    pub fn key_sources(&self) -> &HashMap<KeyCode, SamplesBuffer<f32>> {
+        &self.key_sources
     }
 }

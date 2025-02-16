@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::recording::{new_mixer, MixerController};
 use crate::uiua_extension::UiuaExtension;
 
@@ -36,10 +34,6 @@ impl Uauauiua {
         self.uiua_extension.load()
     }
 
-    pub fn new_values(&mut self) -> &mut HashMap<String, uiua::Value> {
-        &mut self.uiua_extension.new_values
-    }
-
     pub fn start_recording(&mut self) {
         self.mixer_controller.start_recording();
     }
@@ -51,7 +45,6 @@ impl Uauauiua {
     pub fn add_key_source_to_mixer(&mut self, key: KeyCode) -> anyhow::Result<()> {
         let source = self
             .uiua_extension
-            .data()
             .key_sources()
             .get(&key)
             .ok_or(anyhow!("Did not recognize key {key}"))?;

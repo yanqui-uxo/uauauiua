@@ -1,8 +1,12 @@
-use std::mem;
+use std::{fs, mem};
 
-use crate::uauauiua::Uauauiua;
+use crate::{
+    recording::{CHANNEL_NUM, SAMPLE_RATE},
+    uauauiua::Uauauiua,
+};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use hound::{SampleFormat, WavSpec, WavWriter};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -57,7 +61,8 @@ impl Tui {
             loop {
                 if let Event::Key(e) = event::read().expect("should have handled terminal event") {
                     if e.kind == KeyEventKind::Press {
-                        self.handle_key_press(e, &mut terminal);
+                        let r = self.handle_key_press(e, &mut terminal);
+                        self.handle_result(r);
                         break;
                     }
                 }
@@ -72,10 +77,14 @@ impl Tui {
         }
     }
 
-    fn reload(&mut self) {
-        if let Err(e) = self.uauauiua.load() {
+    fn handle_result<T>(&mut self, r: anyhow::Result<T>) {
+        if let Err(e) = r {
             self.last_error = Some(e);
         }
+    }
+    fn reload(&mut self) {
+        let r = self.uauauiua.load();
+        self.handle_result(r);
     }
 
     fn draw(&self, terminal: &mut DefaultTerminal) {
@@ -84,11 +93,16 @@ impl Tui {
             .expect("should have drawn terminal");
     }
 
-    fn handle_key_press(&mut self, key_event: KeyEvent, terminal: &mut DefaultTerminal) {
+    fn handle_key_press(
+        &mut self,
+        key_event: KeyEvent,
+        terminal: &mut DefaultTerminal,
+    ) -> anyhow::Result<()> {
         let key = key_event.code;
 
         if key_event.modifiers.contains(KeyModifiers::CONTROL) && key == KeyCode::Char('c') {
             self.exiting = true;
+            return Ok(());
         }
 
         match (&self.mode, key) {
@@ -117,13 +131,28 @@ impl Tui {
             }
             (Mode::Record | Mode::Jam, key) => {
                 // TODO: do something with potential error
-                let _ = self.uauauiua.add_key_source_to_mixer(key);
+                self.uauauiua.add_key_source_to_mixer(key)?;
             }
             (Mode::Save(v), KeyCode::Enter) => {
-                self.uauauiua.new_values().insert(
-                    mem::take(&mut self.input),
-                    v.iter().map(|&x| f64::from(x)).collect(),
-                );
+                const RECORDINGS_DIR: &str = "recordings";
+
+                let name = mem::take(&mut self.input);
+                let format = WavSpec {
+                    channels: CHANNEL_NUM,
+                    sample_rate: *SAMPLE_RATE,
+                    bits_per_sample: 32,
+                    sample_format: SampleFormat::Float,
+                };
+
+                let _ = fs::create_dir(RECORDINGS_DIR);
+
+                let mut writer =
+                    WavWriter::create(format!("./{RECORDINGS_DIR}/{name}.wav"), format)?;
+                v.iter().copied().for_each(|x| {
+                    writer.write_sample(x).unwrap();
+                });
+                writer.finalize()?;
+
                 self.mode = Mode::Start;
             }
             (Mode::Save(_), KeyCode::Char(c)) => {
@@ -134,6 +163,7 @@ impl Tui {
             }
             _ => {}
         }
+        Ok(())
     }
 }
 
@@ -150,7 +180,7 @@ impl Widget for &Tui {
         };
 
         match &self.last_error {
-            Some(e) => Text::from(vec![l, Line::raw(e.to_string())]),
+            Some(e) => Text::from(vec![l, Line::raw(format!("Error: {e}"))]),
             None => Text::from(l),
         }
         .render(area, buf);

@@ -111,7 +111,7 @@ impl Iterator for Mixer {
             }
         });
 
-        // noise appears to be coming from here. why?
+        // noise appears to be coming from here during playback. why?
         let sample = self
             .sources
             .iter_mut()
