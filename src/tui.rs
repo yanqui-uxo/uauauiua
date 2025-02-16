@@ -137,7 +137,7 @@ impl Tui {
                 const RECORDINGS_DIR: &str = "recordings";
 
                 let name = mem::take(&mut self.input);
-                let format = WavSpec {
+                let spec = WavSpec {
                     channels: CHANNEL_NUM,
                     sample_rate: *SAMPLE_RATE,
                     bits_per_sample: 32,
@@ -146,8 +146,7 @@ impl Tui {
 
                 let _ = fs::create_dir(RECORDINGS_DIR);
 
-                let mut writer =
-                    WavWriter::create(format!("./{RECORDINGS_DIR}/{name}.wav"), format)?;
+                let mut writer = WavWriter::create(format!("./{RECORDINGS_DIR}/{name}.wav"), spec)?;
                 v.iter().copied().for_each(|x| {
                     writer.write_sample(x).unwrap();
                 });
