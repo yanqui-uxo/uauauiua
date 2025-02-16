@@ -53,7 +53,7 @@ impl Tui {
     pub fn run(mut self, mut terminal: DefaultTerminal) {
         self.reload();
 
-        loop {
+        'main: loop {
             self.draw(&mut terminal);
 
             self.last_error = None;
@@ -67,12 +67,8 @@ impl Tui {
                     }
                 }
                 if self.exiting {
-                    break;
+                    break 'main;
                 }
-            }
-
-            if self.exiting {
-                break;
             }
         }
     }
