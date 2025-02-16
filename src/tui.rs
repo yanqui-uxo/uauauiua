@@ -137,20 +137,25 @@ impl Tui {
                 const RECORDINGS_DIR: &str = "recordings";
 
                 let name = mem::take(&mut self.input);
-                let spec = WavSpec {
-                    channels: CHANNEL_NUM,
-                    sample_rate: *SAMPLE_RATE,
-                    bits_per_sample: 32,
-                    sample_format: SampleFormat::Float,
-                };
+                if !name.is_empty() {
+                    let spec = WavSpec {
+                        channels: CHANNEL_NUM,
+                        sample_rate: *SAMPLE_RATE,
+                        bits_per_sample: 32,
+                        sample_format: SampleFormat::Float,
+                    };
 
-                let _ = fs::create_dir(RECORDINGS_DIR);
+                    let _ = fs::create_dir(RECORDINGS_DIR);
 
-                let mut writer = WavWriter::create(format!("./{RECORDINGS_DIR}/{name}.wav"), spec)?;
-                v.iter().copied().for_each(|x| {
-                    writer.write_sample(x).unwrap();
-                });
-                writer.finalize()?;
+                    let mut writer =
+                        WavWriter::create(format!("./{RECORDINGS_DIR}/{name}.wav"), spec)?;
+
+                    // TODO: replace unwrap with proper error handling
+                    v.iter().copied().for_each(|x| {
+                        writer.write_sample(x).unwrap();
+                    });
+                    writer.finalize()?;
+                }
 
                 self.mode = Mode::Start;
             }
@@ -175,7 +180,7 @@ impl Widget for &Tui {
             Mode::Loading => Line::raw("Loading..."),
             Mode::Record => Line::raw(format!("Press {STOP_KEY} to stop recording")),
             Mode::Jam => Line::raw(format!("Press {STOP_KEY} to stop jamming")),
-            Mode::Save(_) => Line::raw(format!("Enter name: {}_", self.input)),
+            Mode::Save(_) => Line::raw(format!("Enter name (leave blank to discard): {}_", self.input)),
         };
 
         match &self.last_error {
