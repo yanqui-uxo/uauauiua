@@ -130,7 +130,6 @@ impl Tui {
                 self.mode = Mode::Start;
             }
             (Mode::Record | Mode::Jam, key) => {
-                // TODO: do something with potential error
                 self.uauauiua.add_key_source_to_mixer(key)?;
             }
             (Mode::Save(v), KeyCode::Enter) => {
