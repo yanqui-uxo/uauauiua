@@ -143,7 +143,7 @@ impl Tui {
                     let _ = fs::create_dir(RECORDINGS_DIR);
 
                     let mut writer =
-                        WavWriter::create(format!("./{RECORDINGS_DIR}/{name}.wav"), spec)?;
+                        WavWriter::create(format!("{RECORDINGS_DIR}/{name}.wav"), spec)?;
 
                     // TODO: replace unwrap with proper error handling
                     v.iter().copied().for_each(|x| {

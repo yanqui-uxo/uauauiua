@@ -13,6 +13,7 @@ pub struct Uauauiua {
     _sink: Sink,
 }
 
+// TODO: use tracing to properly handle stream errors
 impl Uauauiua {
     pub fn new() -> Self {
         let (stream, stream_handle) =
