@@ -80,12 +80,8 @@ impl Mixer {
             recording_tx,
         }
     }
-}
 
-impl Iterator for Mixer {
-    type Item = f32;
-
-    fn next(&mut self) -> Option<f32> {
+    fn handle_events(&mut self) {
         self.event_rx.try_iter().for_each(|e| match e {
             MixerEvent::Source(s) => {
                 self.regular_sources.push(s);
@@ -108,6 +104,14 @@ impl Iterator for Mixer {
                 self.held_sources.clear();
             }
         });
+    }
+}
+
+impl Iterator for Mixer {
+    type Item = f32;
+
+    fn next(&mut self) -> Option<f32> {
+        self.handle_events();
 
         // noise appears to be coming from here during playback. why?
         let sample = self

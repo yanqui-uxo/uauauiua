@@ -37,6 +37,30 @@ const RELOAD_KEY: KeyCode = KeyCode::Char('r');
 const STOP_KEY: KeyCode = KeyCode::Esc;
 const EXIT_KEY: KeyCode = KeyCode::Esc;
 
+fn save_recording(recording: &[f32], name: &str) -> anyhow::Result<()> {
+    const RECORDINGS_DIR: &str = "recordings";
+
+    if !name.is_empty() {
+        let spec = WavSpec {
+            channels: CHANNEL_NUM,
+            sample_rate: *SAMPLE_RATE,
+            bits_per_sample: 32,
+            sample_format: SampleFormat::Float,
+        };
+
+        let _ = fs::create_dir(RECORDINGS_DIR);
+
+        let mut writer = WavWriter::create(format!("{RECORDINGS_DIR}/{name}.wav"), spec)?;
+
+        // TODO: replace unwrap with proper error handling
+        recording.iter().copied().for_each(|x| {
+            writer.write_sample(x).unwrap();
+        });
+        writer.finalize()?;
+    }
+    Ok(())
+}
+
 impl Default for Tui {
     fn default() -> Self {
         Self {
@@ -136,29 +160,7 @@ impl Tui {
                     .add_to_mixer(key, modifiers.contains(KeyModifiers::SHIFT))?;
             }
             (Mode::Save(v), KeyCode::Enter) => {
-                const RECORDINGS_DIR: &str = "recordings";
-
-                let name = mem::take(&mut self.input);
-                if !name.is_empty() {
-                    let spec = WavSpec {
-                        channels: CHANNEL_NUM,
-                        sample_rate: *SAMPLE_RATE,
-                        bits_per_sample: 32,
-                        sample_format: SampleFormat::Float,
-                    };
-
-                    let _ = fs::create_dir(RECORDINGS_DIR);
-
-                    let mut writer =
-                        WavWriter::create(format!("{RECORDINGS_DIR}/{name}.wav"), spec)?;
-
-                    // TODO: replace unwrap with proper error handling
-                    v.iter().copied().for_each(|x| {
-                        writer.write_sample(x).unwrap();
-                    });
-                    writer.finalize()?;
-                }
-
+                save_recording(v, &mem::take(&mut self.input))?;
                 self.mode = Mode::Start;
             }
             (Mode::Save(_), KeyCode::Char(c)) => {
