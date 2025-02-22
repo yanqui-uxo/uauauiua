@@ -1,9 +1,9 @@
-use crate::recording::{new_mixer, MixerController};
+use crate::recording::{new_mixer, MixerController, CHANNEL_NUM, SAMPLE_RATE};
 use crate::uiua_extension::UiuaExtension;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, ensure};
 use crossterm::event::KeyCode;
-use rodio::{OutputStream, OutputStreamHandle, Sink};
+use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
 
 pub struct Uauauiua {
     uiua_extension: UiuaExtension,
@@ -35,21 +35,36 @@ impl Uauauiua {
         self.uiua_extension.load()
     }
 
-    pub fn start_recording(&mut self) {
+    pub fn start_recording(&self) {
         self.mixer_controller.start_recording();
     }
 
-    pub fn stop_recording_and_playback(&mut self) -> Vec<f32> {
+    pub fn stop_recording_and_playback(&self) -> Vec<f32> {
         self.mixer_controller.stop_recording_and_playback()
     }
 
-    pub fn add_key_source_to_mixer(&mut self, key: KeyCode) -> anyhow::Result<()> {
+    pub fn add_to_mixer(&self, key: KeyCode, toggle_hold: bool) -> anyhow::Result<()> {
         let source = self
             .uiua_extension
             .key_sources()
             .get(&key)
             .ok_or(anyhow!("Did not recognize key {key}"))?;
-        self.mixer_controller.add(source.clone())?;
+
+        ensure!(
+            source.channels() == CHANNEL_NUM,
+            format!("incorrect number of channels; expected {CHANNEL_NUM}")
+        );
+        ensure!(
+            source.sample_rate() == *SAMPLE_RATE,
+            format!("incorrect sample rate; expected {}", *SAMPLE_RATE)
+        );
+
+        if toggle_hold {
+            self.mixer_controller.toggle_hold(key, source.clone());
+        } else {
+            self.mixer_controller.add(source.clone());
+        }
+
         Ok(())
     }
 }

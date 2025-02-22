@@ -1,3 +1,5 @@
-OnZPress ← ⊟.×0.25∿×440×τ÷&asr⇡×2&asr
-OnXPress ← ⊟.×0.25∿×660×τ÷&asr⇡×2&asr
-OnCPress ← ⊟.×0.25∿×880×τ÷&asr⇡×2&asr
+# Takes frequency, length, volume
+SineWave ← ⊟.×∿××τ÷&asr⇡×&asr:
+OnZPress ← SineWave 440 0.5 0.25
+OnXPress ← SineWave 660 0.5 0.25
+OnCPress ← SineWave 880 0.5 0.25

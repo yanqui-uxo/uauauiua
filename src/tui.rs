@@ -5,7 +5,7 @@ use crate::{
     uauauiua::Uauauiua,
 };
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use hound::{SampleFormat, WavSpec, WavWriter};
 use ratatui::{
     buffer::Buffer,
@@ -60,8 +60,15 @@ impl Tui {
 
             loop {
                 if let Event::Key(e) = event::read().expect("should have handled terminal event") {
-                    if e.kind == KeyEventKind::Press {
-                        let r = self.handle_key_press(e, &mut terminal);
+                    let key = if let KeyCode::Char(c) = e.code {
+                        KeyCode::Char(c.to_ascii_lowercase())
+                    } else {
+                        e.code
+                    };
+                    let modifiers = e.modifiers;
+
+                    if let KeyEventKind::Press = e.kind {
+                        let r = self.handle_key_press(key, modifiers, &mut terminal);
                         self.handle_result(r);
                         break;
                     }
@@ -91,12 +98,11 @@ impl Tui {
 
     fn handle_key_press(
         &mut self,
-        key_event: KeyEvent,
+        key: KeyCode,
+        modifiers: KeyModifiers,
         terminal: &mut DefaultTerminal,
     ) -> anyhow::Result<()> {
-        let key = key_event.code;
-
-        if key_event.modifiers.contains(KeyModifiers::CONTROL) && key == KeyCode::Char('c') {
+        if modifiers.contains(KeyModifiers::CONTROL) && key == KeyCode::Char('c') {
             self.exiting = true;
             return Ok(());
         }
@@ -126,7 +132,8 @@ impl Tui {
                 self.mode = Mode::Start;
             }
             (Mode::Record | Mode::Jam, key) => {
-                self.uauauiua.add_key_source_to_mixer(key)?;
+                self.uauauiua
+                    .add_to_mixer(key, modifiers.contains(KeyModifiers::SHIFT))?;
             }
             (Mode::Save(v), KeyCode::Enter) => {
                 const RECORDINGS_DIR: &str = "recordings";
@@ -168,6 +175,7 @@ impl Tui {
 
 impl Widget for &Tui {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        // TODO: more detailed explanations
         let l = match self.mode {
             Mode::Start => Line::raw(format!(
                 "Press {START_RECORDING_KEY} to start recording, {JAM_KEY} to enter jam mode, {RELOAD_KEY} to reload the file, or {EXIT_KEY} to exit"

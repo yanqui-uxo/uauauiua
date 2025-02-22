@@ -10,8 +10,8 @@ use uiua::Uiua;
 
 pub const MAIN_PATH: &str = "main.ua";
 
-static KEY_FUNCTION_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^On([A-Z])Press$").unwrap());
+// TODO: replace with internal uiua map?
+static KEY_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^On([A-Z])Press$").unwrap());
 
 fn value_to_source(value: &uiua::Value) -> anyhow::Result<SamplesBuffer<f32>> {
     let mut array = match value {
@@ -37,13 +37,14 @@ fn value_to_source(value: &uiua::Value) -> anyhow::Result<SamplesBuffer<f32>> {
 }
 
 // TODO: handle errors from value_to_source
+// TODO: allow functions as well?
 fn get_key_sources(uiua: &Uiua) -> HashMap<KeyCode, SamplesBuffer<f32>> {
     uiua.bound_values()
         .into_iter()
         .filter_map(|(name, v)| {
             Some((
                 KeyCode::Char(
-                    KEY_FUNCTION_REGEX
+                    KEY_REGEX
                         .captures(&name)?
                         .get(1)?
                         .as_str()
