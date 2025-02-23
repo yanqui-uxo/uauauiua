@@ -1,18 +1,24 @@
 use crate::limited_backend::LimitedBackend;
 use crate::recording::{CHANNEL_NUM, SAMPLE_RATE};
 
-use anyhow::{anyhow, ensure};
+use anyhow::{anyhow, bail, ensure};
 use crossterm::event::KeyCode;
 use rodio::buffer::SamplesBuffer;
 use std::collections::HashMap;
-use uiua::Uiua;
+use uiua::{Uiua, Value};
 
 pub const MAIN_PATH: &str = "main.ua";
 
-fn value_to_source(value: &uiua::Value) -> anyhow::Result<SamplesBuffer<f32>> {
+fn value_to_source(value: &Value) -> anyhow::Result<SamplesBuffer<f32>> {
+    let mut value = value.clone();
+    while let Value::Box(_) = value {
+        value.unbox();
+    }
+
     let mut array = match value {
-        uiua::Value::Byte(x) => Ok(x.convert_ref::<f64>()),
-        uiua::Value::Num(x) => Ok(x.clone()),
+        Value::Byte(x) => Ok(x.convert::<f64>()),
+        Value::Num(x) => Ok(x),
+        Value::Box(_) => panic!("array should have already been unboxed"),
         _ => Err(anyhow!("audio array must be non-complex numeric")),
     }?;
 
@@ -45,8 +51,13 @@ fn get_key_sources(uiua: &Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBuffer
     map.map_kv()
         .into_iter()
         .map(|(k, v)| {
+            // TODO: make pull request so that requirements are an Option
             let name = k.as_string(uiua, "")?;
             if name.chars().count() == 1 {
+                let c = name.chars().next().unwrap();
+                if c.is_ascii_uppercase() {
+                    bail!("expected '{c}' to be lowercase");
+                }
                 Ok((
                     KeyCode::Char(name.chars().next().unwrap()),
                     value_to_source(&v)?,
