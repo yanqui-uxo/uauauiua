@@ -3,15 +3,11 @@ use crate::recording::{CHANNEL_NUM, SAMPLE_RATE};
 
 use anyhow::{anyhow, ensure};
 use crossterm::event::KeyCode;
-use regex::Regex;
 use rodio::buffer::SamplesBuffer;
-use std::{collections::HashMap, sync::LazyLock};
+use std::collections::HashMap;
 use uiua::Uiua;
 
 pub const MAIN_PATH: &str = "main.ua";
-
-// TODO: replace with internal uiua map?
-static KEY_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^On([A-Z])Press$").unwrap());
 
 fn value_to_source(value: &uiua::Value) -> anyhow::Result<SamplesBuffer<f32>> {
     let mut array = match value {
@@ -36,25 +32,28 @@ fn value_to_source(value: &uiua::Value) -> anyhow::Result<SamplesBuffer<f32>> {
     Ok(SamplesBuffer::new(CHANNEL_NUM, *SAMPLE_RATE, array_vec))
 }
 
-// TODO: handle errors from value_to_source
-// TODO: allow functions as well?
-fn get_key_sources(uiua: &Uiua) -> HashMap<KeyCode, SamplesBuffer<f32>> {
-    uiua.bound_values()
+fn get_key_sources(uiua: &Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBuffer<f32>>> {
+    const KEY_MAP_NAME: &str = "OnPress";
+
+    let vals = uiua.bound_values();
+    let map = vals
+        .get(KEY_MAP_NAME)
+        .ok_or(anyhow!("could not get value {KEY_MAP_NAME}"))?;
+
+    ensure!(map.is_map(), "{KEY_MAP_NAME} is not a map");
+
+    map.map_kv()
         .into_iter()
-        .filter_map(|(name, v)| {
-            Some((
-                KeyCode::Char(
-                    KEY_REGEX
-                        .captures(&name)?
-                        .get(1)?
-                        .as_str()
-                        .chars()
-                        .next()
-                        .unwrap()
-                        .to_ascii_lowercase(),
-                ),
-                value_to_source(&v).ok()?,
-            ))
+        .map(|(k, v)| {
+            let name = k.as_string(uiua, "")?;
+            if name.chars().count() == 1 {
+                Ok((
+                    KeyCode::Char(name.chars().next().unwrap()),
+                    value_to_source(&v)?,
+                ))
+            } else {
+                Err(anyhow!("expected '{k}' to be one character"))
+            }
         })
         .collect()
 }
@@ -68,7 +67,7 @@ impl UiuaExtension {
     pub fn load(&mut self) -> anyhow::Result<()> {
         let mut uiua = Uiua::with_backend(LimitedBackend);
         uiua.run_file(MAIN_PATH)?;
-        self.key_sources = get_key_sources(&uiua);
+        self.key_sources = get_key_sources(&uiua)?;
         Ok(())
     }
 

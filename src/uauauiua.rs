@@ -52,11 +52,12 @@ impl Uauauiua {
 
         ensure!(
             source.channels() == CHANNEL_NUM,
-            format!("incorrect number of channels; expected {CHANNEL_NUM}")
+            "incorrect number of channels; expected {CHANNEL_NUM}"
         );
         ensure!(
             source.sample_rate() == *SAMPLE_RATE,
-            format!("incorrect sample rate; expected {}", *SAMPLE_RATE)
+            "incorrect sample rate; expected {}",
+            *SAMPLE_RATE
         );
 
         if toggle_hold {
