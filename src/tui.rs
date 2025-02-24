@@ -39,24 +39,27 @@ const EXIT_KEY: KeyCode = KeyCode::Esc;
 
 const RECORDINGS_DIR: &str = "recordings";
 fn save_recording(recording: &[f32], name: &str) -> anyhow::Result<()> {
-    if !name.is_empty() {
-        let spec = WavSpec {
-            channels: CHANNEL_NUM,
-            sample_rate: *SAMPLE_RATE,
-            bits_per_sample: 32,
-            sample_format: SampleFormat::Float,
-        };
-
-        let _ = fs::create_dir(RECORDINGS_DIR);
-
-        let mut writer = WavWriter::create(format!("{RECORDINGS_DIR}/{name}.wav"), spec)?;
-
-        recording
-            .iter()
-            .copied()
-            .try_for_each(|x| writer.write_sample(x))?;
-        writer.finalize()?;
+    if name.is_empty() {
+        return Ok(());
     }
+
+    let spec = WavSpec {
+        channels: CHANNEL_NUM,
+        sample_rate: *SAMPLE_RATE,
+        bits_per_sample: 32,
+        sample_format: SampleFormat::Float,
+    };
+
+    let _ = fs::create_dir(RECORDINGS_DIR);
+
+    let mut writer = WavWriter::create(format!("{RECORDINGS_DIR}/{name}.wav"), spec)?;
+
+    recording
+        .iter()
+        .copied()
+        .try_for_each(|x| writer.write_sample(x))?;
+    writer.finalize()?;
+
     Ok(())
 }
 
