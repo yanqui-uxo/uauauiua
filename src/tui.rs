@@ -8,11 +8,11 @@ use crate::{
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use hound::{SampleFormat, WavSpec, WavWriter};
 use ratatui::{
+    DefaultTerminal,
     buffer::Buffer,
     layout::Rect,
     text::{Line, Text},
     widgets::Widget,
-    DefaultTerminal,
 };
 
 enum Mode {
@@ -37,9 +37,8 @@ const RELOAD_KEY: KeyCode = KeyCode::Char('r');
 const STOP_KEY: KeyCode = KeyCode::Esc;
 const EXIT_KEY: KeyCode = KeyCode::Esc;
 
+const RECORDINGS_DIR: &str = "recordings";
 fn save_recording(recording: &[f32], name: &str) -> anyhow::Result<()> {
-    const RECORDINGS_DIR: &str = "recordings";
-
     if !name.is_empty() {
         let spec = WavSpec {
             channels: CHANNEL_NUM,
@@ -52,10 +51,10 @@ fn save_recording(recording: &[f32], name: &str) -> anyhow::Result<()> {
 
         let mut writer = WavWriter::create(format!("{RECORDINGS_DIR}/{name}.wav"), spec)?;
 
-        // TODO: replace unwrap with proper error handling
-        recording.iter().copied().for_each(|x| {
-            writer.write_sample(x).unwrap();
-        });
+        recording
+            .iter()
+            .copied()
+            .try_for_each(|x| writer.write_sample(x))?;
         writer.finalize()?;
     }
     Ok(())
@@ -75,7 +74,7 @@ impl Default for Tui {
 
 impl Tui {
     pub fn run(mut self, mut terminal: DefaultTerminal) {
-        self.reload();
+        self.reload(&mut terminal);
 
         'main: loop {
             self.draw(&mut terminal);
@@ -109,9 +108,13 @@ impl Tui {
             self.last_error = Some(e);
         }
     }
-    fn reload(&mut self) {
+
+    fn reload(&mut self, terminal: &mut DefaultTerminal) {
+        let current_mode = mem::replace(&mut self.mode, Mode::Loading);
+        self.draw(terminal);
         let r = self.uauauiua.load();
         self.handle_result(r);
+        self.mode = current_mode;
     }
 
     fn draw(&self, terminal: &mut DefaultTerminal) {
@@ -140,10 +143,7 @@ impl Tui {
                 self.mode = Mode::Jam;
             }
             (Mode::Start, key) if key == RELOAD_KEY => {
-                self.mode = Mode::Loading;
-                self.draw(terminal);
-                self.reload();
-                self.mode = Mode::Start;
+                self.reload(terminal);
             }
             (Mode::Start, key) if key == EXIT_KEY => {
                 self.exiting = true;
@@ -185,7 +185,10 @@ impl Widget for &Tui {
             Mode::Loading => Line::raw("Loading..."),
             Mode::Record => Line::raw(format!("Press {STOP_KEY} to stop recording")),
             Mode::Jam => Line::raw(format!("Press {STOP_KEY} to stop jamming")),
-            Mode::Save(_) => Line::raw(format!("Enter name (leave blank to discard): {}_", self.input)),
+            Mode::Save(_) => Line::raw(format!(
+                "Enter name (leave blank to discard): {}_",
+                self.input
+            )),
         };
 
         match &self.last_error {

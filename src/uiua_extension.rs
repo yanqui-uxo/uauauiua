@@ -5,6 +5,7 @@ use anyhow::{anyhow, bail, ensure};
 use crossterm::event::KeyCode;
 use rodio::buffer::SamplesBuffer;
 use std::collections::HashMap;
+use std::time::Duration;
 use uiua::{Uiua, Value};
 
 pub const MAIN_PATH: &str = "main.ua";
@@ -38,9 +39,8 @@ fn value_to_source(value: &Value) -> anyhow::Result<SamplesBuffer<f32>> {
     Ok(SamplesBuffer::new(CHANNEL_NUM, *SAMPLE_RATE, array_vec))
 }
 
+const KEY_MAP_NAME: &str = "OnPress";
 fn get_key_sources(uiua: &Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBuffer<f32>>> {
-    const KEY_MAP_NAME: &str = "OnPress";
-
     let vals = uiua.bound_values();
     let map = vals
         .get(KEY_MAP_NAME)
@@ -74,9 +74,11 @@ pub struct UiuaExtension {
     key_sources: HashMap<KeyCode, SamplesBuffer<f32>>,
 }
 
+const EXECUTION_TIME_LIMIT: u64 = 10;
 impl UiuaExtension {
     pub fn load(&mut self) -> anyhow::Result<()> {
-        let mut uiua = Uiua::with_backend(LimitedBackend);
+        let mut uiua = Uiua::with_backend(LimitedBackend)
+            .with_execution_limit(Duration::from_secs(EXECUTION_TIME_LIMIT));
         uiua.run_file(MAIN_PATH)?;
         self.key_sources = get_key_sources(&uiua)?;
         Ok(())

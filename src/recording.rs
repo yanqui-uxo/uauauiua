@@ -1,14 +1,14 @@
 use std::{
     collections::HashMap,
     sync::{
-        mpsc::{channel, Receiver, Sender},
         LazyLock,
+        mpsc::{Receiver, Sender, channel},
     },
     time::Duration,
 };
 
 use crossterm::event::KeyCode;
-use rodio::{buffer::SamplesBuffer, source::Repeat, Source};
+use rodio::{Source, buffer::SamplesBuffer, source::Repeat};
 use uiua::{NativeSys, SysBackend};
 
 pub fn new_mixer() -> (MixerController, Mixer) {
@@ -123,7 +123,8 @@ impl Iterator for Mixer {
                     .values_mut()
                     .map(|s| s.next().unwrap_or_default()),
             )
-            .sum();
+            .sum::<f32>()
+            .clamp(-1.0, 1.0);
 
         if self.is_recording {
             self.recording_tx.send(sample).unwrap();
