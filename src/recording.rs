@@ -102,6 +102,8 @@ impl Mixer {
                 self.is_recording = false;
                 self.regular_sources.clear();
                 self.held_sources.clear();
+                self.regular_sources.shrink_to_fit();
+                self.held_sources.shrink_to_fit();
             }
         });
     }
