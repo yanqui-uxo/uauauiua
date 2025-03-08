@@ -7,13 +7,7 @@ use crate::{
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use hound::{SampleFormat, WavSpec, WavWriter};
-use ratatui::{
-    DefaultTerminal,
-    buffer::Buffer,
-    layout::Rect,
-    text::{Line, Text},
-    widgets::Widget,
-};
+use ratatui::{DefaultTerminal, buffer::Buffer, layout::Rect, text::Text, widgets::Widget};
 
 enum Mode {
     Start,
@@ -33,7 +27,7 @@ pub struct Tui {
 
 const START_RECORDING_KEY: KeyCode = KeyCode::Enter;
 const JAM_KEY: KeyCode = KeyCode::Char('j');
-const RELOAD_KEY: KeyCode = KeyCode::Char('r');
+const RELOAD_KEY: KeyCode = KeyCode::Tab;
 const STOP_KEY: KeyCode = KeyCode::Esc;
 const EXIT_KEY: KeyCode = KeyCode::Esc;
 
@@ -145,7 +139,7 @@ impl Tui {
             (Mode::Start, key) if key == JAM_KEY => {
                 self.mode = Mode::Jam;
             }
-            (Mode::Start, key) if key == RELOAD_KEY => {
+            (_, key) if key == RELOAD_KEY => {
                 self.reload(terminal);
             }
             (Mode::Start, key) if key == EXIT_KEY => {
@@ -181,22 +175,26 @@ impl Tui {
 impl Widget for &Tui {
     fn render(self, area: Rect, buf: &mut Buffer) {
         // TODO: more detailed explanations
-        let l = match self.mode {
-            Mode::Start => Line::raw(format!(
-                "Press {START_RECORDING_KEY} to start recording, {JAM_KEY} to enter jam mode, {RELOAD_KEY} to reload the file, or {EXIT_KEY} to exit"
-            )),
-            Mode::Loading => Line::raw("Loading..."),
-            Mode::Record => Line::raw(format!("Press {STOP_KEY} to stop recording")),
-            Mode::Jam => Line::raw(format!("Press {STOP_KEY} to stop jamming")),
-            Mode::Save(_) => Line::raw(format!(
+        let t = match self.mode {
+            Mode::Start => {
+                let line1 = format!(
+                    "Press {START_RECORDING_KEY} to start recording, {JAM_KEY} to enter jam mode, {RELOAD_KEY} to reload the file, or {EXIT_KEY} to exit"
+                );
+                let line2 = "You may reload the file at any time";
+                Text::raw(format!("{line1}\n{line2}"))
+            }
+            Mode::Loading => Text::raw("Loading..."),
+            Mode::Record => Text::raw(format!("Press {STOP_KEY} to stop recording")),
+            Mode::Jam => Text::raw(format!("Press {STOP_KEY} to stop jamming")),
+            Mode::Save(_) => Text::raw(format!(
                 "Enter name (leave blank to discard): {}_",
                 self.input
             )),
         };
 
         match &self.last_error {
-            Some(e) => Text::from(vec![l, Line::raw(format!("Error: {e}"))]),
-            None => Text::from(l),
+            Some(e) => t + Text::raw(format!("Error: {e}")),
+            None => t,
         }
         .render(area, buf);
     }

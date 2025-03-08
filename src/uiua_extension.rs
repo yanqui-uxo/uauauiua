@@ -16,7 +16,7 @@ fn value_to_source(value: &Value) -> anyhow::Result<SamplesBuffer<f32>> {
         value.unbox();
     }
 
-    let mut array = match value {
+    let array = match value {
         Value::Byte(x) => Ok(x.convert::<f64>()),
         Value::Num(x) => Ok(x),
         Value::Box(_) => panic!("array should have already been unboxed"),
@@ -24,12 +24,10 @@ fn value_to_source(value: &Value) -> anyhow::Result<SamplesBuffer<f32>> {
     }?;
 
     ensure!(
-        array.rank() == 2 && array.shape().dims()[0] == CHANNEL_NUM as usize,
-        "audio array shape must be of form [{} n]",
+        array.rank() == 2 && array.shape().dims()[1] == CHANNEL_NUM as usize,
+        "audio array shape must be of form [n {}]",
         CHANNEL_NUM
     );
-
-    array.transpose();
 
     #[allow(clippy::cast_possible_truncation)]
     let array = array.convert_with(|x| x as f32);
