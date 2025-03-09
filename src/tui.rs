@@ -11,10 +11,9 @@ use ratatui::{DefaultTerminal, buffer::Buffer, layout::Rect, text::Text, widgets
 use uiua::Value;
 
 enum Mode {
-    Start,
     Loading,
-    Record,
     Jam,
+    Record,
     Save(Vec<f32>),
 }
 
@@ -27,10 +26,8 @@ pub struct Tui {
     exiting: bool,
 }
 
-const START_RECORDING_KEY: KeyCode = KeyCode::Enter;
-const JAM_KEY: KeyCode = KeyCode::Char('j');
+const RECORD_KEY: KeyCode = KeyCode::Enter;
 const RELOAD_KEY: KeyCode = KeyCode::Tab;
-const STOP_KEY: KeyCode = KeyCode::Esc;
 const EXIT_KEY: KeyCode = KeyCode::Esc;
 
 const RECORDINGS_DIR: &str = "recordings";
@@ -63,7 +60,7 @@ impl Default for Tui {
     fn default() -> Self {
         Self {
             uauauiua: Uauauiua::new(),
-            mode: Mode::Start,
+            mode: Mode::Jam,
             last_error: None,
             stack: None,
             input: String::new(),
@@ -137,33 +134,27 @@ impl Tui {
         }
 
         match (&self.mode, key) {
-            (Mode::Start, key) if key == START_RECORDING_KEY => {
-                self.uauauiua.start_recording();
-                self.mode = Mode::Record;
-            }
-            (Mode::Start, key) if key == JAM_KEY => {
-                self.mode = Mode::Jam;
-            }
             (_, key) if key == RELOAD_KEY => {
                 self.load(terminal);
             }
-            (Mode::Start, key) if key == EXIT_KEY => {
+            (Mode::Jam, key) if key == RECORD_KEY => {
+                self.uauauiua.start_recording();
+                self.mode = Mode::Record;
+            }
+            (Mode::Jam, key) if key == EXIT_KEY => {
+                self.uauauiua.stop_recording_and_playback();
                 self.exiting = true;
             }
-            (Mode::Record, key) if key == STOP_KEY => {
+            (Mode::Record, key) if key == RECORD_KEY => {
                 self.mode = Mode::Save(self.uauauiua.stop_recording_and_playback());
             }
-            (Mode::Jam, key) if key == STOP_KEY => {
-                self.uauauiua.stop_recording_and_playback();
-                self.mode = Mode::Start;
-            }
-            (Mode::Record | Mode::Jam, key) => {
+            (Mode::Jam | Mode::Record, key) => {
                 self.uauauiua
                     .add_to_mixer(key, modifiers.contains(KeyModifiers::SHIFT))?;
             }
             (Mode::Save(v), KeyCode::Enter) => {
                 save_recording(v, &mem::take(&mut self.input))?;
-                self.mode = Mode::Start;
+                self.mode = Mode::Jam;
             }
             (Mode::Save(_), KeyCode::Char(c)) => {
                 self.input.push(c);
@@ -181,16 +172,11 @@ impl Widget for &Tui {
     fn render(self, area: Rect, buf: &mut Buffer) {
         // TODO: more detailed explanations
         let mut t = match self.mode {
-            Mode::Start => {
-                let line1 = format!(
-                    "Press {START_RECORDING_KEY} to start recording, {JAM_KEY} to enter jam mode, {RELOAD_KEY} to reload the file, or {EXIT_KEY} to exit"
-                );
-                let line2 = "You may reload the file at any time";
-                Text::raw(format!("{line1}\n{line2}"))
-            }
             Mode::Loading => Text::raw("Loading..."),
-            Mode::Record => Text::raw(format!("Press {STOP_KEY} to stop recording")),
-            Mode::Jam => Text::raw(format!("Press {STOP_KEY} to stop jamming")),
+            Mode::Jam => Text::raw(format!(
+                "Press {RECORD_KEY} to start recording, {RELOAD_KEY} to reload the file, or {EXIT_KEY} to exit"
+            )),
+            Mode::Record => Text::raw(format!("Press {RECORD_KEY} to stop recording")),
             Mode::Save(_) => Text::raw(format!(
                 "Enter name (leave blank to discard): {}_",
                 self.input
