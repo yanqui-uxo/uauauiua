@@ -200,13 +200,17 @@ impl Widget for &Tui {
             t = t + Text::raw(format!("Error: {e}"));
         }
         if let Some(s) = &self.stack {
-            t = t + Text::raw(format!(
-                "Stack:\n{}",
-                s.iter()
-                    .map(std::string::ToString::to_string)
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            ));
+            if s.is_empty() {
+                t = t + Text::raw("Stack: [empty]");
+            } else {
+                t = t + Text::raw(format!(
+                    "Stack:\n{}",
+                    s.iter()
+                        .map(std::string::ToString::to_string)
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                ));
+            }
         }
 
         t.render(area, buf);
