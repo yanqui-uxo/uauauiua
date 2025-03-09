@@ -1,9 +1,10 @@
-use crate::recording::{new_mixer, MixerController, CHANNEL_NUM, SAMPLE_RATE};
+use crate::recording::{CHANNEL_NUM, MixerController, SAMPLE_RATE, new_mixer};
 use crate::uiua_extension::UiuaExtension;
 
 use anyhow::{anyhow, ensure};
 use crossterm::event::KeyCode;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
+use uiua::Value;
 
 pub struct Uauauiua {
     uiua_extension: UiuaExtension,
@@ -31,7 +32,7 @@ impl Uauauiua {
         }
     }
 
-    pub fn load(&mut self) -> anyhow::Result<()> {
+    pub fn load(&mut self) -> anyhow::Result<Vec<Value>> {
         self.uiua_extension.load()
     }
 

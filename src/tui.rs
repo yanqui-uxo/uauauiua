@@ -8,6 +8,7 @@ use crate::{
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use hound::{SampleFormat, WavSpec, WavWriter};
 use ratatui::{DefaultTerminal, buffer::Buffer, layout::Rect, text::Text, widgets::Widget};
+use uiua::Value;
 
 enum Mode {
     Start,
@@ -21,6 +22,7 @@ pub struct Tui {
     uauauiua: Uauauiua,
     mode: Mode,
     last_error: Option<anyhow::Error>,
+    stack: Option<Vec<Value>>,
     input: String,
     exiting: bool,
 }
@@ -63,6 +65,7 @@ impl Default for Tui {
             uauauiua: Uauauiua::new(),
             mode: Mode::Start,
             last_error: None,
+            stack: None,
             input: String::new(),
             exiting: false,
         }
@@ -71,7 +74,7 @@ impl Default for Tui {
 
 impl Tui {
     pub fn run(mut self, mut terminal: DefaultTerminal) {
-        self.reload(&mut terminal);
+        self.load(&mut terminal);
 
         'main: loop {
             self.draw(&mut terminal);
@@ -88,8 +91,9 @@ impl Tui {
                     let modifiers = e.modifiers;
 
                     if let KeyEventKind::Press = e.kind {
-                        let r = self.handle_key_press(key, modifiers, &mut terminal);
-                        self.handle_result(r);
+                        if let Err(e) = self.handle_key_press(key, modifiers, &mut terminal) {
+                            self.last_error = Some(e);
+                        }
                         break;
                     }
                 }
@@ -100,17 +104,18 @@ impl Tui {
         }
     }
 
-    fn handle_result<T>(&mut self, r: anyhow::Result<T>) {
-        if let Err(e) = r {
-            self.last_error = Some(e);
-        }
-    }
-
-    fn reload(&mut self, terminal: &mut DefaultTerminal) {
+    fn load(&mut self, terminal: &mut DefaultTerminal) {
         let current_mode = mem::replace(&mut self.mode, Mode::Loading);
         self.draw(terminal);
-        let r = self.uauauiua.load();
-        self.handle_result(r);
+        match self.uauauiua.load() {
+            Ok(v) => {
+                self.stack = Some(v);
+            }
+            Err(e) => {
+                self.stack = None;
+                self.last_error = Some(e);
+            }
+        }
         self.mode = current_mode;
     }
 
@@ -140,7 +145,7 @@ impl Tui {
                 self.mode = Mode::Jam;
             }
             (_, key) if key == RELOAD_KEY => {
-                self.reload(terminal);
+                self.load(terminal);
             }
             (Mode::Start, key) if key == EXIT_KEY => {
                 self.exiting = true;
@@ -175,7 +180,7 @@ impl Tui {
 impl Widget for &Tui {
     fn render(self, area: Rect, buf: &mut Buffer) {
         // TODO: more detailed explanations
-        let t = match self.mode {
+        let mut t = match self.mode {
             Mode::Start => {
                 let line1 = format!(
                     "Press {START_RECORDING_KEY} to start recording, {JAM_KEY} to enter jam mode, {RELOAD_KEY} to reload the file, or {EXIT_KEY} to exit"
@@ -191,11 +196,19 @@ impl Widget for &Tui {
                 self.input
             )),
         };
-
-        match &self.last_error {
-            Some(e) => t + Text::raw(format!("Error: {e}")),
-            None => t,
+        if let Some(e) = &self.last_error {
+            t = t + Text::raw(format!("Error: {e}"));
         }
-        .render(area, buf);
+        if let Some(s) = &self.stack {
+            t = t + Text::raw(format!(
+                "Stack:\n{}",
+                s.iter()
+                    .map(std::string::ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ));
+        }
+
+        t.render(area, buf);
     }
 }

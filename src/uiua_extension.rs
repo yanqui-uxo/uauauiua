@@ -74,12 +74,12 @@ pub struct UiuaExtension {
 
 const EXECUTION_TIME_LIMIT: u64 = 10;
 impl UiuaExtension {
-    pub fn load(&mut self) -> anyhow::Result<()> {
+    pub fn load(&mut self) -> anyhow::Result<Vec<Value>> {
         let mut uiua = Uiua::with_backend(LimitedBackend)
             .with_execution_limit(Duration::from_secs(EXECUTION_TIME_LIMIT));
         uiua.run_file(MAIN_PATH)?;
         self.key_sources = get_key_sources(&uiua)?;
-        Ok(())
+        Ok(uiua.take_stack())
     }
 
     pub fn key_sources(&self) -> &HashMap<KeyCode, SamplesBuffer<f32>> {
