@@ -1767,6 +1767,7 @@ dependencies = [
  "dashmap",
  "ecow",
  "enum-iterator",
+ "hound",
  "indexmap",
  "num_cpus",
  "once_cell",

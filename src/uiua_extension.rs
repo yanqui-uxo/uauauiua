@@ -49,7 +49,7 @@ fn get_key_sources(uiua: &Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBuffer
     map.map_kv()
         .into_iter()
         .map(|(k, v)| {
-            // TODO: make pull request so that requirements are an Option
+            // TODO: when my PR is in a stable version of Uiua replace "" with None
             let name = k.as_string(uiua, "")?;
             if name.chars().count() == 1 {
                 let c = name.chars().next().unwrap();
