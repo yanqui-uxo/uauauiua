@@ -7,7 +7,13 @@ use crate::{
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use hound::{SampleFormat, WavSpec, WavWriter};
-use ratatui::{DefaultTerminal, buffer::Buffer, layout::Rect, text::Text, widgets::Widget};
+use ratatui::{
+    DefaultTerminal,
+    buffer::Buffer,
+    layout::Rect,
+    text::{Line, Text},
+    widgets::Widget,
+};
 use uiua::Value;
 
 enum Mode {
@@ -182,12 +188,21 @@ impl Widget for &Tui {
                 self.input
             )),
         };
+        t += Line::raw(format!(
+            "Held sources: [{}]",
+            self.uauauiua
+                .held_sources()
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect::<Vec<String>>()
+                .join(", ")
+        ));
         if let Some(e) = &self.last_error {
-            t = t + Text::raw(format!("Error: {e}"));
+            t += Line::raw(format!("Error: {e}"));
         }
         if let Some(s) = &self.stack {
             if s.is_empty() {
-                t = t + Text::raw("Stack: [empty]");
+                t += Line::raw("Stack is empty");
             } else {
                 t = t + Text::raw(format!(
                     "Stack:\n{}",

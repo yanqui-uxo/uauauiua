@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::recording::{CHANNEL_NUM, MixerController, SAMPLE_RATE, new_mixer};
 use crate::uiua_extension::UiuaExtension;
 
@@ -40,11 +42,11 @@ impl Uauauiua {
         self.mixer_controller.start_recording();
     }
 
-    pub fn stop_recording_and_playback(&self) -> Vec<f32> {
+    pub fn stop_recording_and_playback(&mut self) -> Vec<f32> {
         self.mixer_controller.stop_recording_and_playback()
     }
 
-    pub fn add_to_mixer(&self, key: KeyCode, toggle_hold: bool) -> anyhow::Result<()> {
+    pub fn add_to_mixer(&mut self, key: KeyCode, toggle_hold: bool) -> anyhow::Result<()> {
         let source = self
             .uiua_extension
             .key_sources()
@@ -68,5 +70,9 @@ impl Uauauiua {
         }
 
         Ok(())
+    }
+
+    pub fn held_sources(&self) -> &HashSet<KeyCode> {
+        self.mixer_controller.held_sources()
     }
 }

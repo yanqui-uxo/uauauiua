@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{
         LazyLock,
         mpsc::{Receiver, Sender, channel},
@@ -33,6 +33,7 @@ enum MixerEvent {
 pub struct MixerController {
     event_tx: Sender<MixerEvent>,
     recording_rx: Receiver<f32>,
+    held_sources: HashSet<KeyCode>,
 }
 
 // TODO: replace methods with generic event method?
@@ -41,24 +42,35 @@ impl MixerController {
         MixerController {
             event_tx,
             recording_rx,
+            held_sources: HashSet::default(),
         }
     }
 
     pub fn add(&self, source: SamplesBuffer<f32>) {
         self.event_tx.send(MixerEvent::Source(source)).unwrap();
     }
-    pub fn toggle_hold(&self, key: KeyCode, source: SamplesBuffer<f32>) {
+    pub fn toggle_hold(&mut self, key: KeyCode, source: SamplesBuffer<f32>) {
         self.event_tx
             .send(MixerEvent::ToggleHold(key, source))
             .unwrap();
+        if self.held_sources.contains(&key) {
+            self.held_sources.remove(&key);
+        } else {
+            self.held_sources.insert(key);
+        }
     }
 
     pub fn start_recording(&self) {
         self.event_tx.send(MixerEvent::Start).unwrap();
     }
-    pub fn stop_recording_and_playback(&self) -> Vec<f32> {
+    pub fn stop_recording_and_playback(&mut self) -> Vec<f32> {
         self.event_tx.send(MixerEvent::Stop).unwrap();
+        self.held_sources.clear();
         self.recording_rx.try_iter().collect()
+    }
+
+    pub fn held_sources(&self) -> &HashSet<KeyCode> {
+        &self.held_sources
     }
 }
 
