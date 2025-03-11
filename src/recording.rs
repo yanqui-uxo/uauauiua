@@ -36,7 +36,6 @@ pub struct MixerController {
     held_sources: HashSet<KeyCode>,
 }
 
-// TODO: replace methods with generic event method?
 impl MixerController {
     fn new(event_tx: Sender<MixerEvent>, recording_rx: Receiver<f32>) -> Self {
         MixerController {
@@ -127,7 +126,6 @@ impl Iterator for Mixer {
     fn next(&mut self) -> Option<f32> {
         self.handle_events();
 
-        // noise appears to be coming from here during playback. why?
         let sample = self
             .regular_sources
             .iter_mut()
