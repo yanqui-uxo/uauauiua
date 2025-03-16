@@ -11,17 +11,13 @@ use uiua::{Uiua, Value};
 pub const MAIN_PATH: &str = "main.ua";
 
 fn value_to_source(value: &Value) -> anyhow::Result<SamplesBuffer<f32>> {
-    let mut value = value.clone();
-    while let Value::Box(_) = value {
-        value.unbox();
-    }
+    let value = value.clone().unpacked();
 
     let array = match value {
-        Value::Byte(x) => Ok(x.convert::<f64>()),
-        Value::Num(x) => Ok(x),
-        Value::Box(_) => panic!("array should have already been unboxed"),
-        _ => Err(anyhow!("audio array must be non-complex numeric")),
-    }?;
+        Value::Byte(x) => x.convert::<f64>(),
+        Value::Num(x) => x,
+        _ => bail!("audio array must be non-complex numeric"),
+    };
 
     ensure!(
         array.rank() == 2 && array.shape().dims()[1] == CHANNEL_NUM as usize,
@@ -72,7 +68,7 @@ pub struct UiuaExtension {
     key_sources: HashMap<KeyCode, SamplesBuffer<f32>>,
 }
 
-const EXECUTION_TIME_LIMIT: u64 = 10;
+const EXECUTION_TIME_LIMIT: u64 = 5;
 impl UiuaExtension {
     pub fn load(&mut self) -> anyhow::Result<Vec<Value>> {
         let mut uiua = Uiua::with_backend(LimitedBackend)
