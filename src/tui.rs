@@ -34,6 +34,7 @@ pub struct Tui {
 
 const RECORD_KEY: KeyCode = KeyCode::Enter;
 const RELOAD_KEY: KeyCode = KeyCode::Tab;
+const STOP_PLAYBACK_KEY: KeyCode = KeyCode::Backspace;
 const EXIT_KEY: KeyCode = KeyCode::Esc;
 
 const RECORDINGS_DIR: &str = "recordings";
@@ -154,6 +155,9 @@ impl Tui {
             (Mode::Record, key) if key == RECORD_KEY => {
                 self.mode = Mode::Save(self.uauauiua.stop_recording_and_playback());
             }
+            (Mode::Jam | Mode::Record, key) if key == STOP_PLAYBACK_KEY => {
+                self.uauauiua.stop_playback();
+            }
             (Mode::Jam | Mode::Record, key) => {
                 self.uauauiua
                     .add_to_mixer(key, modifiers.contains(KeyModifiers::SHIFT))?;
@@ -180,7 +184,7 @@ impl Widget for &Tui {
         let mut t = match self.mode {
             Mode::Loading => Text::raw("Loading..."),
             Mode::Jam => Text::raw(format!(
-                "Press {RECORD_KEY} to start recording, {RELOAD_KEY} to reload the file, or {EXIT_KEY} to exit"
+                "Press {RECORD_KEY} to start recording, {RELOAD_KEY} to reload the file, {STOP_PLAYBACK_KEY} to stop playback, or {EXIT_KEY} to exit"
             )),
             Mode::Record => Text::raw(format!("Press {RECORD_KEY} to stop recording")),
             Mode::Save(_) => Text::raw(format!(

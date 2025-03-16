@@ -27,7 +27,8 @@ enum MixerEvent {
     Source(SamplesBuffer<f32>),
     ToggleHold(KeyCode, SamplesBuffer<f32>),
     Start,
-    Stop,
+    StopPlayback,
+    StopRecording,
 }
 
 pub struct MixerController {
@@ -62,9 +63,12 @@ impl MixerController {
     pub fn start_recording(&self) {
         self.event_tx.send(MixerEvent::Start).unwrap();
     }
-    pub fn stop_recording_and_playback(&mut self) -> Vec<f32> {
-        self.event_tx.send(MixerEvent::Stop).unwrap();
+    pub fn stop_playback(&mut self) {
+        self.event_tx.send(MixerEvent::StopPlayback).unwrap();
         self.held_sources.clear();
+    }
+    pub fn stop_recording(&mut self) -> Vec<f32> {
+        self.event_tx.send(MixerEvent::StopRecording).unwrap();
         self.recording_rx.try_iter().collect()
     }
 
@@ -109,12 +113,14 @@ impl Mixer {
             MixerEvent::Start => {
                 self.is_recording = true;
             }
-            MixerEvent::Stop => {
-                self.is_recording = false;
+            MixerEvent::StopPlayback => {
                 self.regular_sources.clear();
                 self.held_sources.clear();
                 self.regular_sources.shrink_to_fit();
                 self.held_sources.shrink_to_fit();
+            }
+            MixerEvent::StopRecording => {
+                self.is_recording = false;
             }
         });
     }
