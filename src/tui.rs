@@ -16,6 +16,12 @@ use ratatui::{
 };
 use uiua::Value;
 
+const RECORD_KEY: KeyCode = KeyCode::Enter;
+const RELOAD_KEY: KeyCode = KeyCode::Tab;
+const STOP_PLAYBACK_KEY: KeyCode = KeyCode::Backspace;
+const EXIT_KEY: KeyCode = KeyCode::Esc;
+const RECORDINGS_DIR: &str = "recordings";
+
 enum Mode {
     Loading,
     Jam,
@@ -32,12 +38,6 @@ pub struct Tui {
     exiting: bool,
 }
 
-const RECORD_KEY: KeyCode = KeyCode::Enter;
-const RELOAD_KEY: KeyCode = KeyCode::Tab;
-const STOP_PLAYBACK_KEY: KeyCode = KeyCode::Backspace;
-const EXIT_KEY: KeyCode = KeyCode::Esc;
-
-const RECORDINGS_DIR: &str = "recordings";
 fn save_recording(recording: &[f32], name: &str) -> anyhow::Result<()> {
     if name.is_empty() {
         return Ok(());

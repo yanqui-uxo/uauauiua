@@ -9,6 +9,8 @@ use std::time::Duration;
 use uiua::{Uiua, Value};
 
 pub const MAIN_PATH: &str = "main.ua";
+const KEY_MAP_NAME: &str = "OnPress";
+const EXECUTION_TIME_LIMIT: u64 = 5;
 
 fn value_to_source(value: &Value) -> anyhow::Result<SamplesBuffer<f32>> {
     let value = value.clone().unpacked();
@@ -33,7 +35,6 @@ fn value_to_source(value: &Value) -> anyhow::Result<SamplesBuffer<f32>> {
     Ok(SamplesBuffer::new(CHANNEL_NUM, *SAMPLE_RATE, array_vec))
 }
 
-const KEY_MAP_NAME: &str = "OnPress";
 fn get_key_sources(uiua: &Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBuffer<f32>>> {
     let vals = uiua.bound_values();
     let map = vals
@@ -68,7 +69,6 @@ pub struct UiuaExtension {
     key_sources: HashMap<KeyCode, SamplesBuffer<f32>>,
 }
 
-const EXECUTION_TIME_LIMIT: u64 = 5;
 impl UiuaExtension {
     pub fn load(&mut self) -> anyhow::Result<Vec<Value>> {
         let mut uiua = Uiua::with_backend(LimitedBackend)
