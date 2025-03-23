@@ -20,7 +20,7 @@ const RECORD_KEY: KeyCode = KeyCode::Enter;
 const RELOAD_KEY: KeyCode = KeyCode::Tab;
 const STOP_PLAYBACK_KEY: KeyCode = KeyCode::Backspace;
 const EXIT_KEY: KeyCode = KeyCode::Esc;
-const HOLD_MODIFIER: KeyModifiers = KeyModifiers::CONTROL;
+const HOLD_MODIFIER: KeyModifiers = KeyModifiers::SHIFT;
 const RECORDINGS_DIR: &str = "recordings";
 
 enum Mode {

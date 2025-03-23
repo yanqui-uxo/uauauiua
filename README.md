@@ -8,7 +8,7 @@ make a map called `OnPress` with keyboard keys as... keys and audio as values (m
 
 press the key to make the sound
 
-press ctrl+key to repeat the sound, ctrl+key again to stop repeating
+press shift+key to repeat the sound, shift+key again to stop repeating (NOTE: only works for letter keys)
 
 recordings are saved in /recordings/[name].wav
 
