@@ -20,6 +20,7 @@ const RECORD_KEY: KeyCode = KeyCode::Enter;
 const RELOAD_KEY: KeyCode = KeyCode::Tab;
 const STOP_PLAYBACK_KEY: KeyCode = KeyCode::Backspace;
 const EXIT_KEY: KeyCode = KeyCode::Esc;
+const HOLD_MODIFIER: KeyModifiers = KeyModifiers::CONTROL;
 const RECORDINGS_DIR: &str = "recordings";
 
 enum Mode {
@@ -135,11 +136,6 @@ impl Tui {
         modifiers: KeyModifiers,
         terminal: &mut DefaultTerminal,
     ) -> anyhow::Result<()> {
-        if modifiers.contains(KeyModifiers::CONTROL) && key == KeyCode::Char('c') {
-            self.exiting = true;
-            return Ok(());
-        }
-
         match (&self.mode, key) {
             (_, key) if key == RELOAD_KEY => {
                 self.load(terminal);
@@ -160,7 +156,7 @@ impl Tui {
             }
             (Mode::Jam | Mode::Record, key) => {
                 self.uauauiua
-                    .add_to_mixer(key, modifiers.contains(KeyModifiers::SHIFT))?;
+                    .add_to_mixer(key, modifiers.contains(HOLD_MODIFIER))?;
             }
             (Mode::Save(v), KeyCode::Enter) => {
                 save_recording(v, &mem::take(&mut self.input))?;
