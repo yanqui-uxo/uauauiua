@@ -37,9 +37,9 @@ fn value_to_source(value: &Value) -> anyhow::Result<SamplesBuffer<f32>> {
 
 fn get_key_sources(uiua: &Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBuffer<f32>>> {
     let vals = uiua.bound_values();
-    let map = vals
-        .get(KEY_MAP_NAME)
-        .ok_or(anyhow!("could not get value {KEY_MAP_NAME}"))?;
+    let Some(map) = vals.get(KEY_MAP_NAME) else {
+        return Ok(HashMap::default());
+    };
 
     ensure!(map.is_map(), "{KEY_MAP_NAME} is not a map");
 
@@ -64,21 +64,29 @@ fn get_key_sources(uiua: &Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBuffer
         .collect()
 }
 
-#[derive(Default)]
 pub struct UiuaExtension {
+    uiua: Uiua,
     key_sources: HashMap<KeyCode, SamplesBuffer<f32>>,
 }
 
 impl UiuaExtension {
     pub fn load(&mut self) -> anyhow::Result<Vec<Value>> {
-        let mut uiua = Uiua::with_backend(LimitedBackend)
-            .with_execution_limit(Duration::from_secs(EXECUTION_TIME_LIMIT));
-        uiua.run_file(MAIN_PATH)?;
-        self.key_sources = get_key_sources(&uiua)?;
-        Ok(uiua.take_stack())
+        self.uiua.run_file(MAIN_PATH)?;
+        self.key_sources.extend(get_key_sources(&self.uiua)?);
+        Ok(self.uiua.stack().to_vec())
     }
 
     pub fn key_sources(&self) -> &HashMap<KeyCode, SamplesBuffer<f32>> {
         &self.key_sources
+    }
+}
+
+impl Default for UiuaExtension {
+    fn default() -> Self {
+        Self {
+            uiua: Uiua::with_backend(LimitedBackend)
+                .with_execution_limit(Duration::from_secs(EXECUTION_TIME_LIMIT)),
+            key_sources: HashMap::default(),
+        }
     }
 }
