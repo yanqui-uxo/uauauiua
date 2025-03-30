@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    iter::Peekable,
     sync::{
         LazyLock,
         mpsc::{Receiver, Sender, channel},
@@ -80,8 +81,8 @@ impl MixerController {
 
 pub struct Mixer {
     event_rx: Receiver<MixerEvent>,
-    regular_sources: Vec<SamplesBuffer<f32>>,
-    held_sources: HashMap<KeyCode, Repeat<SamplesBuffer<f32>>>,
+    regular_sources: Vec<Peekable<SamplesBuffer<f32>>>,
+    held_sources: HashMap<KeyCode, Peekable<Repeat<SamplesBuffer<f32>>>>,
     is_recording: bool,
     recording_tx: Sender<f32>,
 }
@@ -100,7 +101,7 @@ impl Mixer {
     fn handle_events(&mut self) {
         self.event_rx.try_iter().for_each(|e| match e {
             MixerEvent::Source(s) => {
-                self.regular_sources.push(s);
+                self.regular_sources.push(s.peekable());
             }
             MixerEvent::ToggleHold(k, s) =>
             {
@@ -108,7 +109,7 @@ impl Mixer {
                 if self.held_sources.contains_key(&k) {
                     self.held_sources.remove(&k);
                 } else {
-                    self.held_sources.insert(k, s.repeat_infinite());
+                    self.held_sources.insert(k, s.repeat_infinite().peekable());
                 }
             }
             MixerEvent::Start => {
@@ -133,15 +134,20 @@ impl Iterator for Mixer {
     fn next(&mut self) -> Option<f32> {
         self.handle_events();
 
+        self.regular_sources.retain_mut(|x| x.peek().is_some());
+        self.held_sources.retain(|_, v| v.peek().is_some());
+
         let sample = self
             .regular_sources
             .iter_mut()
-            .map(|s| s.next().unwrap_or_default())
-            .chain(
-                self.held_sources
-                    .values_mut()
-                    .map(|s| s.next().unwrap_or_default()),
-            )
+            .map(|s| {
+                s.next()
+                    .expect("Empty non-held sources should have been removed")
+            })
+            .chain(self.held_sources.values_mut().map(|s| {
+                s.next()
+                    .expect("Empty held sources should have been removed")
+            }))
             .sum::<f32>()
             .clamp(-1.0, 1.0);
 
