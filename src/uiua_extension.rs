@@ -37,9 +37,10 @@ fn value_to_source(value: &Value) -> anyhow::Result<SamplesBuffer<f32>> {
 
 fn get_key_sources(uiua: &Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBuffer<f32>>> {
     let vals = uiua.bound_values();
-    let Some(map) = vals.get(KEY_MAP_NAME) else {
-        return Ok(HashMap::default());
-    };
+
+    let map = vals
+        .get(KEY_MAP_NAME)
+        .ok_or(anyhow!("Could not get value {KEY_MAP_NAME}"))?;
 
     ensure!(map.is_map(), "{KEY_MAP_NAME} is not a map");
 
