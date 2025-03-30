@@ -35,12 +35,21 @@ fn value_to_source(value: &Value) -> anyhow::Result<SamplesBuffer<f32>> {
     Ok(SamplesBuffer::new(CHANNEL_NUM, *SAMPLE_RATE, array_vec))
 }
 
-fn get_key_sources(uiua: &Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBuffer<f32>>> {
+fn get_key_sources(uiua: &mut Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBuffer<f32>>> {
     let vals = uiua.bound_values();
+    let funcs = uiua.bound_functions();
 
-    let map = vals
-        .get(KEY_MAP_NAME)
-        .ok_or(anyhow!("Could not get value {KEY_MAP_NAME}"))?;
+    let owned_map;
+    let map;
+    if let Some(m) = vals.get(KEY_MAP_NAME) {
+        map = m;
+    } else if let Some(f) = funcs.get(KEY_MAP_NAME) {
+        uiua.call(f)?;
+        owned_map = uiua.pop("keyboard map")?;
+        map = &owned_map;
+    } else {
+        bail!("Could not get OnPress");
+    }
 
     ensure!(map.is_map(), "{KEY_MAP_NAME} is not a map");
 
@@ -73,7 +82,7 @@ pub struct UiuaExtension {
 impl UiuaExtension {
     pub fn load(&mut self) -> anyhow::Result<Vec<Value>> {
         self.uiua.run_file(MAIN_PATH)?;
-        self.key_sources.extend(get_key_sources(&self.uiua)?);
+        self.key_sources.extend(get_key_sources(&mut self.uiua)?);
         Ok(self.uiua.stack().to_vec())
     }
 
