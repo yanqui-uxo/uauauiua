@@ -1814,7 +1814,6 @@ dependencies = [
  "crossterm",
  "hound",
  "ratatui",
- "regex",
  "rodio",
  "uiua",
 ]
