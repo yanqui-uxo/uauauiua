@@ -14,7 +14,6 @@ use ratatui::{
     text::{Line, Text},
     widgets::Widget,
 };
-use uiua::Value;
 
 const RECORD_KEY: KeyCode = KeyCode::Enter;
 const RELOAD_KEY: KeyCode = KeyCode::Tab;
@@ -34,7 +33,6 @@ pub struct Tui {
     uauauiua: Uauauiua,
     mode: Mode,
     last_error: Option<anyhow::Error>,
-    stack: Option<Vec<Value>>,
     input: String,
     exiting: bool,
 }
@@ -70,7 +68,6 @@ impl Default for Tui {
             uauauiua: Uauauiua::new(),
             mode: Mode::Jam,
             last_error: None,
-            stack: None,
             input: String::new(),
             exiting: false,
         }
@@ -78,6 +75,12 @@ impl Default for Tui {
 }
 
 impl Tui {
+    pub fn handle_result<T>(&mut self, r: Result<T, anyhow::Error>) {
+        if let Err(e) = r {
+            self.last_error = Some(e);
+        }
+    }
+
     pub fn run(mut self, mut terminal: DefaultTerminal) {
         self.load(&mut terminal);
 
@@ -96,9 +99,8 @@ impl Tui {
                     let modifiers = e.modifiers;
 
                     if let KeyEventKind::Press = e.kind {
-                        if let Err(e) = self.handle_key_press(key, modifiers, &mut terminal) {
-                            self.last_error = Some(e);
-                        }
+                        let r = self.handle_key_press(key, modifiers, &mut terminal);
+                        self.handle_result(r);
                         break;
                     }
                 }
@@ -112,15 +114,8 @@ impl Tui {
     fn load(&mut self, terminal: &mut DefaultTerminal) {
         let current_mode = mem::replace(&mut self.mode, Mode::Loading);
         self.draw(terminal);
-        match self.uauauiua.load() {
-            Ok(v) => {
-                self.stack = Some(v);
-            }
-            Err(e) => {
-                self.stack = None;
-                self.last_error = Some(e);
-            }
-        }
+        let r = self.uauauiua.load();
+        self.handle_result(r);
         self.mode = current_mode;
     }
 
@@ -200,18 +195,18 @@ impl Widget for &Tui {
         if let Some(e) = &self.last_error {
             t += Line::raw(format!("Error: {e}"));
         }
-        if let Some(s) = &self.stack {
-            if s.is_empty() {
-                t += Line::raw("Stack is empty");
-            } else {
-                t = t + Text::raw(format!(
-                    "Stack:\n{}",
-                    s.iter()
-                        .map(std::string::ToString::to_string)
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                ));
-            }
+        let stack = self.uauauiua.stack();
+        if stack.is_empty() {
+            t += Line::raw("Stack is empty");
+        } else {
+            t = t + Text::raw(format!(
+                "Stack:\n{}",
+                stack
+                    .iter()
+                    .map(std::string::ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ));
         }
 
         t.render(area, buf);

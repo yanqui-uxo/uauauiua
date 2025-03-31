@@ -80,14 +80,18 @@ pub struct UiuaExtension {
 }
 
 impl UiuaExtension {
-    pub fn load(&mut self) -> anyhow::Result<Vec<Value>> {
+    pub fn load(&mut self) -> anyhow::Result<()> {
         self.uiua.run_file(MAIN_PATH)?;
         self.key_sources.extend(get_key_sources(&mut self.uiua)?);
-        Ok(self.uiua.stack().to_vec())
+        Ok(())
     }
 
     pub fn key_sources(&self) -> &HashMap<KeyCode, SamplesBuffer<f32>> {
         &self.key_sources
+    }
+
+    pub fn stack(&self) -> &[Value] {
+        self.uiua.stack()
     }
 }
 

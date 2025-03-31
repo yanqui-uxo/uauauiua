@@ -34,7 +34,7 @@ impl Uauauiua {
         }
     }
 
-    pub fn load(&mut self) -> anyhow::Result<Vec<Value>> {
+    pub fn load(&mut self) -> anyhow::Result<()> {
         self.uiua_extension.load()
     }
 
@@ -79,5 +79,9 @@ impl Uauauiua {
 
     pub fn held_sources(&self) -> &HashSet<KeyCode> {
         self.mixer_controller.held_sources()
+    }
+
+    pub fn stack(&self) -> &[Value] {
+        self.uiua_extension.stack()
     }
 }
