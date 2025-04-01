@@ -3,7 +3,7 @@ use std::{
     iter::Peekable,
     sync::{
         LazyLock,
-        mpsc::{Receiver, Sender, channel},
+        mpsc::{Receiver, SendError, Sender, channel},
     },
     time::Duration,
 };
@@ -14,18 +14,18 @@ use uiua::{NativeSys, SysBackend};
 
 pub const CHANNEL_NUM: u16 = 2;
 
-pub fn new_mixer() -> (MixerController, Mixer) {
+pub fn new_mixer(is_recording: bool) -> (MixerController, Mixer) {
     let (event_tx, event_rx) = channel();
     let (recording_tx, recording_rx) = channel();
     (
-        MixerController::new(event_tx, recording_rx),
-        Mixer::new(event_rx, recording_tx),
+        MixerController::new(is_recording, event_tx, recording_rx),
+        Mixer::new(is_recording, event_rx, recording_tx),
     )
 }
 
 pub static SAMPLE_RATE: LazyLock<u32> = LazyLock::new(|| NativeSys.audio_sample_rate());
 
-enum MixerEvent {
+pub enum MixerCommand {
     Source(SamplesBuffer<f32>),
     ToggleHold(KeyCode, SamplesBuffer<f32>),
     Start,
@@ -34,53 +34,74 @@ enum MixerEvent {
 }
 
 pub struct MixerController {
-    event_tx: Sender<MixerEvent>,
+    is_recording: bool,
+    command_tx: Sender<MixerCommand>,
     recording_rx: Receiver<f32>,
     held_sources: HashSet<KeyCode>,
 }
 
 impl MixerController {
-    fn new(event_tx: Sender<MixerEvent>, recording_rx: Receiver<f32>) -> Self {
+    fn new(
+        is_recording: bool,
+        event_tx: Sender<MixerCommand>,
+        recording_rx: Receiver<f32>,
+    ) -> Self {
         MixerController {
-            event_tx,
+            command_tx: event_tx,
             recording_rx,
             held_sources: HashSet::default(),
+            is_recording,
         }
     }
-
-    pub fn add(&self, source: SamplesBuffer<f32>) {
-        self.event_tx.send(MixerEvent::Source(source)).unwrap();
+    pub fn add(&self, source: SamplesBuffer<f32>) -> Result<(), SendError<MixerCommand>> {
+        self.command_tx.send(MixerCommand::Source(source))
     }
-    pub fn toggle_hold(&mut self, key: KeyCode, source: SamplesBuffer<f32>) {
-        self.event_tx
-            .send(MixerEvent::ToggleHold(key, source))
-            .unwrap();
+    pub fn toggle_hold(
+        &mut self,
+        key: KeyCode,
+        source: SamplesBuffer<f32>,
+    ) -> Result<(), SendError<MixerCommand>> {
+        self.command_tx
+            .send(MixerCommand::ToggleHold(key, source))?;
         if self.held_sources.contains(&key) {
             self.held_sources.remove(&key);
         } else {
             self.held_sources.insert(key);
         }
+        Ok(())
     }
 
-    pub fn start_recording(&self) {
-        self.event_tx.send(MixerEvent::Start).unwrap();
+    pub fn start_recording(&mut self) -> Result<(), SendError<MixerCommand>> {
+        self.command_tx.send(MixerCommand::Start)?;
+        self.is_recording = true;
+        Ok(())
     }
-    pub fn stop_playback(&mut self) {
-        self.event_tx.send(MixerEvent::StopPlayback).unwrap();
+    pub fn stop_playback(&mut self) -> Result<(), SendError<MixerCommand>> {
+        self.command_tx.send(MixerCommand::StopPlayback)?;
         self.held_sources.clear();
+        Ok(())
     }
-    pub fn stop_recording(&mut self) -> Vec<f32> {
-        self.event_tx.send(MixerEvent::StopRecording).unwrap();
+
+    pub fn get_recording(&mut self) -> Vec<f32> {
         self.recording_rx.try_iter().collect()
+    }
+
+    pub fn stop_recording(&mut self) -> Result<Vec<f32>, SendError<MixerCommand>> {
+        self.command_tx.send(MixerCommand::StopRecording)?;
+        self.is_recording = false;
+        Ok(self.get_recording())
     }
 
     pub fn held_sources(&self) -> &HashSet<KeyCode> {
         &self.held_sources
     }
+    pub fn is_recording(&self) -> bool {
+        self.is_recording
+    }
 }
 
 pub struct Mixer {
-    event_rx: Receiver<MixerEvent>,
+    command_rx: Receiver<MixerCommand>,
     regular_sources: Vec<Peekable<SamplesBuffer<f32>>>,
     held_sources: HashMap<KeyCode, Peekable<Repeat<SamplesBuffer<f32>>>>,
     is_recording: bool,
@@ -88,22 +109,26 @@ pub struct Mixer {
 }
 
 impl Mixer {
-    fn new(event_rx: Receiver<MixerEvent>, recording_tx: Sender<f32>) -> Self {
+    fn new(
+        is_recording: bool,
+        event_rx: Receiver<MixerCommand>,
+        recording_tx: Sender<f32>,
+    ) -> Self {
         Mixer {
-            event_rx,
+            command_rx: event_rx,
             regular_sources: Vec::default(),
             held_sources: HashMap::default(),
-            is_recording: false,
+            is_recording,
             recording_tx,
         }
     }
 
     fn handle_events(&mut self) {
-        self.event_rx.try_iter().for_each(|e| match e {
-            MixerEvent::Source(s) => {
+        self.command_rx.try_iter().for_each(|e| match e {
+            MixerCommand::Source(s) => {
                 self.regular_sources.push(s.peekable());
             }
-            MixerEvent::ToggleHold(k, s) =>
+            MixerCommand::ToggleHold(k, s) =>
             {
                 #[allow(clippy::map_entry)]
                 if self.held_sources.contains_key(&k) {
@@ -112,16 +137,16 @@ impl Mixer {
                     self.held_sources.insert(k, s.repeat_infinite().peekable());
                 }
             }
-            MixerEvent::Start => {
+            MixerCommand::Start => {
                 self.is_recording = true;
             }
-            MixerEvent::StopPlayback => {
+            MixerCommand::StopPlayback => {
                 self.regular_sources.clear();
                 self.held_sources.clear();
                 self.regular_sources.shrink_to_fit();
                 self.held_sources.shrink_to_fit();
             }
-            MixerEvent::StopRecording => {
+            MixerCommand::StopRecording => {
                 self.is_recording = false;
             }
         });

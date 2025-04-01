@@ -79,6 +79,16 @@ pub struct UiuaExtension {
     key_sources: HashMap<KeyCode, SamplesBuffer<f32>>,
 }
 
+impl Default for UiuaExtension {
+    fn default() -> Self {
+        Self {
+            uiua: Uiua::with_backend(LimitedBackend)
+                .with_execution_limit(Duration::from_secs(EXECUTION_TIME_LIMIT)),
+            key_sources: HashMap::default(),
+        }
+    }
+}
+
 impl UiuaExtension {
     pub fn load(&mut self) -> anyhow::Result<()> {
         self.uiua.run_file(MAIN_PATH)?;
@@ -92,15 +102,5 @@ impl UiuaExtension {
 
     pub fn stack(&self) -> &[Value] {
         self.uiua.stack()
-    }
-}
-
-impl Default for UiuaExtension {
-    fn default() -> Self {
-        Self {
-            uiua: Uiua::with_backend(LimitedBackend)
-                .with_execution_limit(Duration::from_secs(EXECUTION_TIME_LIMIT)),
-            key_sources: HashMap::default(),
-        }
     }
 }
