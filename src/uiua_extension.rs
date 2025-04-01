@@ -56,8 +56,7 @@ fn get_key_sources(uiua: &mut Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBu
     map.map_kv()
         .into_iter()
         .map(|(k, v)| {
-            // TODO: when my PR is in a stable version of Uiua replace "" with None
-            let name = k.as_string(uiua, "")?;
+            let name = k.as_string(uiua, None)?;
             if name.chars().count() == 1 {
                 let c = name.chars().next().unwrap();
                 if c.is_ascii_uppercase() {
