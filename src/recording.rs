@@ -43,14 +43,14 @@ pub struct MixerController {
 impl MixerController {
     fn new(
         is_recording: bool,
-        event_tx: Sender<MixerCommand>,
+        command_tx: Sender<MixerCommand>,
         recording_rx: Receiver<f32>,
     ) -> Self {
         MixerController {
-            command_tx: event_tx,
+            is_recording,
+            command_tx,
             recording_rx,
             held_sources: HashSet::default(),
-            is_recording,
         }
     }
     pub fn add(&self, source: SamplesBuffer<f32>) -> Result<(), SendError<MixerCommand>> {

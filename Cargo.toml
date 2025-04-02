@@ -11,4 +11,4 @@ ratatui = "0.29.0"
 rodio = {version = "0.20.1", features = ["tracing"]}
 
 # TODO: change when a new version is released
-uiua = {git = "https://github.com/uiua-lang/uiua.git", default-features = false, features = ["audio_encode", "clipboard", "fft", "native_sys"]}
+uiua = {git = "https://github.com/uiua-lang/uiua.git", default-features = false, features = ["batteries", "clipboard", "fft", "native_sys"]}
