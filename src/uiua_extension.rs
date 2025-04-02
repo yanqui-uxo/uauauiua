@@ -91,7 +91,7 @@ impl Default for UiuaExtension {
 impl UiuaExtension {
     pub fn load(&mut self) -> anyhow::Result<()> {
         self.uiua.run_file(MAIN_PATH)?;
-        self.key_sources.extend(get_key_sources(&mut self.uiua)?);
+        self.key_sources = get_key_sources(&mut self.uiua)?;
         Ok(())
     }
 
