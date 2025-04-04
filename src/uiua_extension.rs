@@ -102,4 +102,8 @@ impl UiuaExtension {
     pub fn stack(&self) -> &[Value] {
         self.uiua.stack()
     }
+
+    pub fn clear_stack(&mut self) {
+        self.uiua.take_stack();
+    }
 }

@@ -63,6 +63,13 @@ impl Uauauiua {
         self.uiua_extension.load()
     }
 
+    fn mixer_controller(&self) -> &MixerController {
+        self.audio_handler.mixer_controller()
+    }
+    fn mixer_controller_mut(&mut self) -> &mut MixerController {
+        self.audio_handler.mixer_controller_mut()
+    }
+
     pub fn reinit_audio(&mut self) {
         let held_sources = self.mixer_controller().held_sources().clone();
 
@@ -74,13 +81,6 @@ impl Uauauiua {
             self.add_to_mixer(key, true)
                 .expect("could not re-add held sources");
         }
-    }
-
-    fn mixer_controller(&self) -> &MixerController {
-        self.audio_handler.mixer_controller()
-    }
-    fn mixer_controller_mut(&mut self) -> &mut MixerController {
-        self.audio_handler.mixer_controller_mut()
     }
 
     pub fn start_recording(&mut self) -> anyhow::Result<()> {
@@ -133,12 +133,8 @@ impl Uauauiua {
         }
     }
 
-    pub fn held_sources(&self) -> &HashSet<KeyCode> {
-        self.mixer_controller().held_sources()
-    }
-
-    pub fn stack(&self) -> &[Value] {
-        self.uiua_extension.stack()
+    pub fn clear_stack(&mut self) {
+        self.uiua_extension.clear_stack();
     }
 
     pub fn save_recording(&mut self, recording: &[f32], name: &str) -> anyhow::Result<()> {
@@ -165,5 +161,13 @@ impl Uauauiua {
         writer.finalize()?;
 
         Ok(())
+    }
+
+    pub fn held_sources(&self) -> &HashSet<KeyCode> {
+        self.mixer_controller().held_sources()
+    }
+
+    pub fn stack(&self) -> &[Value] {
+        self.uiua_extension.stack()
     }
 }
