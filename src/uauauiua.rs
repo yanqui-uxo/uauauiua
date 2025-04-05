@@ -109,7 +109,7 @@ impl Uauauiua {
             .uiua_extension
             .key_sources()
             .get(&key)
-            .ok_or(anyhow!("did not recognize key {key}"))?;
+            .ok_or(anyhow!("key {key} not recognized"))?;
 
         ensure!(
             source.channels() == CHANNEL_NUM,

@@ -10,5 +10,4 @@ hound = "3.5.1"
 ratatui = "0.29.0"
 rodio = {version = "0.20.1", features = ["tracing"]}
 
-# TODO: change when a new version is released
-uiua = {git = "https://github.com/uiua-lang/uiua.git", default-features = false, features = ["batteries", "clipboard", "fft", "native_sys"]}
+uiua = {version = "0.15.0", default-features = false, features = ["batteries", "clipboard", "fft", "native_sys"]}

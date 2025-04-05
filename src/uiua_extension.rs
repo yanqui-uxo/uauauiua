@@ -59,13 +59,11 @@ fn get_key_sources(uiua: &mut Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBu
             let name = k.as_string(uiua, None)?;
             if name.chars().count() == 1 {
                 let c = name.chars().next().unwrap();
-                if c.is_ascii_uppercase() {
-                    bail!("expected '{c}' to be lowercase");
-                }
-                Ok((
-                    KeyCode::Char(name.chars().next().unwrap()),
-                    value_to_source(&v)?,
-                ))
+                ensure!(
+                    c.is_ascii_lowercase(),
+                    "expected '{c}' in {KEY_MAP_NAME} keys to be lowercase ASCII"
+                );
+                Ok((KeyCode::Char(c), value_to_source(&v)?))
             } else {
                 Err(anyhow!("expected '{k}' to be one character"))
             }
