@@ -118,8 +118,8 @@ impl Tui {
                 self.mode = Mode::Record;
             }
             (Mode::Jam, key) if key == EXIT_KEY => {
-                self.uauauiua.stop_recording_and_playback()?;
                 self.exiting = true;
+                self.uauauiua.stop_recording_and_playback()?;
             }
             (Mode::Record, key) if key == RECORD_KEY => {
                 self.mode = Mode::Save(self.uauauiua.stop_recording_and_playback()?);
