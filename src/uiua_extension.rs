@@ -12,19 +12,19 @@ pub const MAIN_PATH: &str = "main.ua";
 const KEY_MAP_NAME: &str = "OnPress";
 const EXECUTION_TIME_LIMIT: u64 = 5;
 
-fn value_to_source(value: &Value) -> anyhow::Result<SamplesBuffer<f32>> {
+fn value_to_source(value: &Value, key: char) -> anyhow::Result<SamplesBuffer<f32>> {
     let value = value.clone().unpacked();
 
     let array = match value {
         Value::Byte(x) => x.convert::<f64>(),
         Value::Num(x) => x,
-        _ => bail!("audio array must be non-complex numeric"),
+        _ => bail!("value for key '{key}' of {KEY_MAP_NAME} must be non-complex numeric"),
     };
 
+    let shape = array.shape();
     ensure!(
-        array.rank() == 2 && array.shape().dims()[1] == CHANNEL_NUM as usize,
-        "audio array shape must be of form [n {}]",
-        CHANNEL_NUM
+        array.rank() == 2 && shape.dims()[1] == CHANNEL_NUM as usize,
+        "shape {shape} for key '{key}' of {KEY_MAP_NAME} is not of form [n {CHANNEL_NUM}]",
     );
 
     #[allow(clippy::cast_possible_truncation)]
@@ -63,9 +63,11 @@ fn get_key_sources(uiua: &mut Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBu
                     c.is_ascii_lowercase(),
                     "expected '{c}' in {KEY_MAP_NAME} keys to be lowercase ASCII"
                 );
-                Ok((KeyCode::Char(c), value_to_source(&v)?))
+                Ok((KeyCode::Char(c), value_to_source(&v, c)?))
             } else {
-                Err(anyhow!("expected '{k}' to be one character"))
+                Err(anyhow!(
+                    "expected {KEY_MAP_NAME} key '{k}' to be one character"
+                ))
             }
         })
         .collect()
