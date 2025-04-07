@@ -71,16 +71,10 @@ impl Uauauiua {
     }
 
     pub fn reinit_audio(&mut self) {
-        let held_sources = self.mixer_controller().held_sources().clone();
-
         let mut recording = self.mixer_controller_mut().get_recording();
         self.partial_recording.append(&mut recording);
 
         self.audio_handler = AudioHandler::new(self.mixer_controller().is_recording());
-        for key in held_sources {
-            self.add_to_mixer(key, true)
-                .expect("could not re-add held sources");
-        }
     }
 
     pub fn start_recording(&mut self) -> anyhow::Result<()> {
