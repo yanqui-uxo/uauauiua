@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     iter::Peekable,
     sync::{
         LazyLock,
@@ -9,6 +9,7 @@ use std::{
 };
 
 use crossterm::event::KeyCode;
+use indexmap::IndexSet;
 use rodio::{Source, buffer::SamplesBuffer, source::Repeat};
 use uiua::{NativeSys, SysBackend};
 
@@ -37,7 +38,7 @@ pub struct MixerController {
     is_recording: bool,
     command_tx: Sender<MixerCommand>,
     recording_rx: Receiver<f32>,
-    held_sources: HashSet<KeyCode>,
+    held_sources: IndexSet<KeyCode>,
 }
 
 impl MixerController {
@@ -50,7 +51,7 @@ impl MixerController {
             is_recording,
             command_tx,
             recording_rx,
-            held_sources: HashSet::default(),
+            held_sources: IndexSet::default(),
         }
     }
     pub fn add(&self, source: SamplesBuffer<f32>) -> Result<(), SendError<MixerCommand>> {
@@ -64,7 +65,7 @@ impl MixerController {
         self.command_tx
             .send(MixerCommand::ToggleHold(key, source))?;
         if self.held_sources.contains(&key) {
-            self.held_sources.remove(&key);
+            self.held_sources.shift_remove(&key);
         } else {
             self.held_sources.insert(key);
         }
@@ -92,7 +93,7 @@ impl MixerController {
         Ok(self.get_recording())
     }
 
-    pub fn held_sources(&self) -> &HashSet<KeyCode> {
+    pub fn held_sources(&self) -> &IndexSet<KeyCode> {
         &self.held_sources
     }
     pub fn is_recording(&self) -> bool {

@@ -3,8 +3,8 @@ use crate::recording::{CHANNEL_NUM, SAMPLE_RATE};
 
 use anyhow::{anyhow, bail, ensure};
 use crossterm::event::KeyCode;
+use indexmap::IndexMap;
 use rodio::buffer::SamplesBuffer;
-use std::collections::HashMap;
 use std::time::Duration;
 use uiua::{Uiua, Value};
 
@@ -35,7 +35,7 @@ fn value_to_source(value: &Value, key: char) -> anyhow::Result<SamplesBuffer<f32
     Ok(SamplesBuffer::new(CHANNEL_NUM, *SAMPLE_RATE, array_vec))
 }
 
-fn get_key_sources(uiua: &mut Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBuffer<f32>>> {
+fn get_key_sources(uiua: &mut Uiua) -> anyhow::Result<IndexMap<KeyCode, SamplesBuffer<f32>>> {
     let vals = uiua.bound_values();
     let funcs = uiua.bound_functions();
 
@@ -75,7 +75,7 @@ fn get_key_sources(uiua: &mut Uiua) -> anyhow::Result<HashMap<KeyCode, SamplesBu
 
 pub struct UiuaExtension {
     uiua: Uiua,
-    key_sources: HashMap<KeyCode, SamplesBuffer<f32>>,
+    key_sources: IndexMap<KeyCode, SamplesBuffer<f32>>,
 }
 
 impl Default for UiuaExtension {
@@ -83,7 +83,7 @@ impl Default for UiuaExtension {
         Self {
             uiua: Uiua::with_backend(LimitedBackend)
                 .with_execution_limit(Duration::from_secs(EXECUTION_TIME_LIMIT)),
-            key_sources: HashMap::default(),
+            key_sources: IndexMap::default(),
         }
     }
 }
@@ -95,7 +95,7 @@ impl UiuaExtension {
         Ok(())
     }
 
-    pub fn key_sources(&self) -> &HashMap<KeyCode, SamplesBuffer<f32>> {
+    pub fn key_sources(&self) -> &IndexMap<KeyCode, SamplesBuffer<f32>> {
         &self.key_sources
     }
 

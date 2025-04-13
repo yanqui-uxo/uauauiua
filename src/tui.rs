@@ -167,6 +167,15 @@ impl Widget for &Tui {
             )),
         };
         t += Line::raw(format!(
+            "Defined sources: [{}]",
+            self.uauauiua
+                .defined_sources()
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect::<Vec<String>>()
+                .join(", ")
+        ));
+        t += Line::raw(format!(
             "Held sources: [{}]",
             self.uauauiua
                 .held_sources()

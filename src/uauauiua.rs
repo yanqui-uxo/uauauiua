@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::{fs, mem};
 
 use crate::recording::{CHANNEL_NUM, MixerController, SAMPLE_RATE, new_mixer};
@@ -7,6 +6,7 @@ use crate::uiua_extension::UiuaExtension;
 use anyhow::{anyhow, ensure};
 use crossterm::event::KeyCode;
 use hound::{SampleFormat, WavSpec, WavWriter};
+use indexmap::IndexSet;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
 use uiua::Value;
 
@@ -157,7 +157,11 @@ impl Uauauiua {
         Ok(())
     }
 
-    pub fn held_sources(&self) -> &HashSet<KeyCode> {
+    pub fn defined_sources(&self) -> IndexSet<KeyCode> {
+        self.uiua_extension.key_sources().keys().copied().collect()
+    }
+
+    pub fn held_sources(&self) -> &IndexSet<KeyCode> {
         self.mixer_controller().held_sources()
     }
 
