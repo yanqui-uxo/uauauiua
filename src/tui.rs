@@ -88,19 +88,12 @@ impl Tui {
         }
     }
 
-    fn load_closure(
-        &mut self,
-        terminal: &mut DefaultTerminal,
-        f: impl Fn(&mut Uauauiua) -> anyhow::Result<()>,
-    ) {
+    fn load_uiua(&mut self, terminal: &mut DefaultTerminal) {
         let current_mode = mem::replace(&mut self.mode, Mode::Loading);
         self.draw(terminal);
-        let r = f(&mut self.uauauiua);
+        let r = self.uauauiua.load();
         self.handle_result(r);
         self.mode = current_mode;
-    }
-    fn load_uiua(&mut self, terminal: &mut DefaultTerminal) {
-        self.load_closure(terminal, Uauauiua::load);
     }
 
     fn handle_key_press(
