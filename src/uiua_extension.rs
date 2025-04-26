@@ -3,7 +3,7 @@ use crate::recording::{CHANNEL_NUM, SAMPLE_RATE};
 
 use anyhow::{anyhow, bail, ensure};
 use crossterm::event::KeyCode;
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use rodio::buffer::SamplesBuffer;
 use std::time::Duration;
 use uiua::{Uiua, Value};
@@ -76,6 +76,7 @@ fn get_key_sources(uiua: &mut Uiua) -> anyhow::Result<IndexMap<KeyCode, SamplesB
 pub struct UiuaExtension {
     uiua: Uiua,
     key_sources: IndexMap<KeyCode, SamplesBuffer<f32>>,
+    new_values: IndexMap<String, Value>,
 }
 
 impl Default for UiuaExtension {
@@ -84,13 +85,23 @@ impl Default for UiuaExtension {
             uiua: Uiua::with_backend(LimitedBackend)
                 .with_execution_limit(Duration::from_secs(EXECUTION_TIME_LIMIT)),
             key_sources: IndexMap::default(),
+            new_values: IndexMap::default(),
         }
     }
 }
 
 impl UiuaExtension {
     pub fn load(&mut self) -> anyhow::Result<()> {
-        self.uiua.run_file(MAIN_PATH)?;
+        self.uiua.compile_run(|c| {
+            for (name, value) in self.new_values.clone() {
+                c.create_bind_function(name, (0, 1), move |u| {
+                    u.push(value.clone());
+                    Ok(())
+                })?;
+            }
+            c.load_file(MAIN_PATH)?;
+            Ok(c)
+        })?;
         self.key_sources = get_key_sources(&mut self.uiua)?;
         Ok(())
     }
@@ -99,11 +110,23 @@ impl UiuaExtension {
         &self.key_sources
     }
 
+    pub fn new_value_names(&self) -> IndexSet<String> {
+        self.new_values.keys().cloned().collect()
+    }
+
     pub fn stack(&self) -> &[Value] {
         self.uiua.stack()
     }
 
+    pub fn add_value(&mut self, name: &str, value: Value) {
+        self.new_values.insert(name.to_string(), value);
+    }
+
     pub fn clear_stack(&mut self) {
         self.uiua.take_stack();
+    }
+
+    pub fn clear_new_values(&mut self) {
+        self.new_values.clear();
     }
 }

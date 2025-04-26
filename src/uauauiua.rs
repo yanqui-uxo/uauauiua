@@ -19,10 +19,10 @@ struct AudioHandler {
     _sink: Sink,
 }
 impl AudioHandler {
-    fn new(is_recording: bool) -> Self {
+    fn new(is_recording_main: bool, is_recording_secondary: bool) -> Self {
         let (stream, stream_handle) =
             OutputStream::try_default().expect("should have initialized audio output stream");
-        let (mixer_controller, mixer) = new_mixer(is_recording);
+        let (mixer_controller, mixer) = new_mixer(is_recording_main, is_recording_secondary);
         let sink = Sink::try_new(&stream_handle).expect("should have initialized audio sink");
         sink.append(mixer);
 
@@ -44,7 +44,8 @@ impl AudioHandler {
 
 pub struct Uauauiua {
     uiua_extension: UiuaExtension,
-    partial_recording: Vec<f32>,
+    partial_main_recording: Vec<f32>,
+    partial_secondary_recording: Vec<f32>,
     audio_handler: AudioHandler,
 }
 
@@ -52,8 +53,9 @@ impl Default for Uauauiua {
     fn default() -> Self {
         Uauauiua {
             uiua_extension: UiuaExtension::default(),
-            partial_recording: Vec::default(),
-            audio_handler: AudioHandler::new(false),
+            partial_main_recording: Vec::default(),
+            partial_secondary_recording: Vec::default(),
+            audio_handler: AudioHandler::new(false, false),
         }
     }
 }
@@ -71,16 +73,27 @@ impl Uauauiua {
     }
 
     pub fn reinit_audio(&mut self) {
-        let mut recording = self.mixer_controller_mut().get_recording();
-        self.partial_recording.append(&mut recording);
+        let mut main_recording = self.mixer_controller_mut().get_main_recording();
+        self.partial_main_recording.append(&mut main_recording);
+        let mut secondary_recording = self.mixer_controller_mut().get_secondary_recording();
+        self.partial_secondary_recording
+            .append(&mut secondary_recording);
 
-        self.audio_handler = AudioHandler::new(self.mixer_controller().is_recording());
+        self.audio_handler = AudioHandler::new(
+            self.mixer_controller().is_recording_main(),
+            self.mixer_controller().is_recording_secondary(),
+        );
     }
 
-    pub fn start_recording(&mut self) -> anyhow::Result<()> {
+    pub fn start_main_recording(&mut self) -> anyhow::Result<()> {
         self.mixer_controller_mut()
-            .start_recording()
-            .map_err(|_| anyhow!("could not start recording"))
+            .start_main_recording()
+            .map_err(|_| anyhow!("could not start main recording"))
+    }
+    pub fn start_secondary_recording(&mut self) -> anyhow::Result<()> {
+        self.mixer_controller_mut()
+            .start_secondary_recording()
+            .map_err(|_| anyhow!("could not start secondary recording"))
     }
 
     pub fn stop_playback(&mut self) -> anyhow::Result<()> {
@@ -89,11 +102,20 @@ impl Uauauiua {
             .map_err(|_| anyhow!("could not stop playback"))
     }
 
-    pub fn stop_recording_and_playback(&mut self) -> anyhow::Result<Vec<f32>> {
+    pub fn stop_main_recording_and_playback(&mut self) -> anyhow::Result<Vec<f32>> {
         let ret = self
             .mixer_controller_mut()
-            .stop_recording()
-            .map_err(|_| anyhow!("could not stop recording"));
+            .stop_main_recording()
+            .map_err(|_| anyhow!("could not stop main recording"));
+        self.stop_playback()?;
+        ret
+    }
+
+    pub fn stop_secondary_recording_and_playback(&mut self) -> anyhow::Result<Vec<f32>> {
+        let ret = self
+            .mixer_controller_mut()
+            .stop_secondary_recording()
+            .map_err(|_| anyhow!("could not stop secondary recording"));
         self.stop_playback()?;
         ret
     }
@@ -131,12 +153,16 @@ impl Uauauiua {
         self.uiua_extension.clear_stack();
     }
 
-    pub fn save_recording(&mut self, recording: &[f32], name: &str) -> anyhow::Result<()> {
+    pub fn clear_recordings(&mut self) {
+        self.uiua_extension.clear_new_values();
+    }
+
+    pub fn save_main_recording(&mut self, recording: &[f32], name: &str) -> anyhow::Result<()> {
         if name.is_empty() {
             return Ok(());
         }
 
-        let mut recording_iter = mem::take(&mut self.partial_recording)
+        let mut recording_iter = mem::take(&mut self.partial_main_recording)
             .into_iter()
             .chain(recording.iter().copied());
 
@@ -157,6 +183,22 @@ impl Uauauiua {
         Ok(())
     }
 
+    pub fn save_secondary_recording(&mut self, recording: &[f32], name: &str) {
+        if name.is_empty() {
+            return;
+        }
+
+        let recording: Vec<f32> = mem::take(&mut self.partial_secondary_recording)
+            .into_iter()
+            .chain(recording.iter().copied())
+            .collect();
+        let len = recording.len();
+        let mut recording_value: Value = recording.into_iter().map(f64::from).collect();
+        *recording_value.shape_mut() = [len / CHANNEL_NUM as usize, CHANNEL_NUM as usize].into();
+
+        self.uiua_extension.add_value(name, recording_value);
+    }
+
     pub fn defined_sources(&self) -> IndexSet<KeyCode> {
         self.uiua_extension.key_sources().keys().copied().collect()
     }
@@ -165,7 +207,18 @@ impl Uauauiua {
         self.mixer_controller().held_sources()
     }
 
+    pub fn secondary_recording_names(&self) -> IndexSet<String> {
+        self.uiua_extension.new_value_names()
+    }
+
     pub fn stack(&self) -> &[Value] {
         self.uiua_extension.stack()
+    }
+
+    pub fn is_recording_main(&self) -> bool {
+        self.mixer_controller().is_recording_main()
+    }
+    pub fn is_recording_secondary(&self) -> bool {
+        self.mixer_controller().is_recording_secondary()
     }
 }

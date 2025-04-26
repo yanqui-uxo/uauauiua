@@ -10,4 +10,4 @@ hound = "3.5.1"
 indexmap = "2.9.0"
 ratatui = "0.29.0"
 rodio = {version = "0.20.1", features = ["tracing"]}
-uiua = {version = "0.15.0", default-features = false, features = ["batteries", "clipboard", "fft", "native_sys"]}
+uiua = {version = "0.15.1", default-features = false, features = ["batteries", "clipboard", "fft", "native_sys"]}

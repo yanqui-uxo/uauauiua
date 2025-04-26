@@ -15,12 +15,28 @@ use uiua::{NativeSys, SysBackend};
 
 pub const CHANNEL_NUM: u16 = 2;
 
-pub fn new_mixer(is_recording: bool) -> (MixerController, Mixer) {
+pub fn new_mixer(
+    is_recording_main: bool,
+    is_recording_secondary: bool,
+) -> (MixerController, Mixer) {
     let (event_tx, event_rx) = channel();
-    let (recording_tx, recording_rx) = channel();
+    let (main_recording_tx, main_recording_rx) = channel();
+    let (secondary_recording_tx, secondary_recording_rx) = channel();
     (
-        MixerController::new(is_recording, event_tx, recording_rx),
-        Mixer::new(is_recording, event_rx, recording_tx),
+        MixerController::new(
+            is_recording_main,
+            is_recording_secondary,
+            event_tx,
+            main_recording_rx,
+            secondary_recording_rx,
+        ),
+        Mixer::new(
+            is_recording_main,
+            is_recording_secondary,
+            event_rx,
+            main_recording_tx,
+            secondary_recording_tx,
+        ),
     )
 }
 
@@ -29,28 +45,36 @@ pub static SAMPLE_RATE: LazyLock<u32> = LazyLock::new(|| NativeSys.audio_sample_
 pub enum MixerCommand {
     Source(SamplesBuffer<f32>),
     ToggleHold(KeyCode, SamplesBuffer<f32>),
-    Start,
+    StartMainRecording,
+    StartSecondaryRecording,
+    StopMainRecording,
+    StopSecondaryRecording,
     StopPlayback,
-    StopRecording,
 }
 
 pub struct MixerController {
-    is_recording: bool,
+    is_recording_main: bool,
+    is_recording_secondary: bool,
     command_tx: Sender<MixerCommand>,
-    recording_rx: Receiver<f32>,
+    main_recording_rx: Receiver<f32>,
+    secondary_recording_rx: Receiver<f32>,
     held_sources: IndexSet<KeyCode>,
 }
 
 impl MixerController {
     fn new(
-        is_recording: bool,
+        is_recording_main: bool,
+        is_recording_secondary: bool,
         command_tx: Sender<MixerCommand>,
-        recording_rx: Receiver<f32>,
+        main_recording_rx: Receiver<f32>,
+        secondary_recording_rx: Receiver<f32>,
     ) -> Self {
         MixerController {
-            is_recording,
+            is_recording_main,
+            is_recording_secondary,
             command_tx,
-            recording_rx,
+            main_recording_rx,
+            secondary_recording_rx,
             held_sources: IndexSet::default(),
         }
     }
@@ -72,9 +96,15 @@ impl MixerController {
         Ok(())
     }
 
-    pub fn start_recording(&mut self) -> Result<(), SendError<MixerCommand>> {
-        self.command_tx.send(MixerCommand::Start)?;
-        self.is_recording = true;
+    pub fn start_main_recording(&mut self) -> Result<(), SendError<MixerCommand>> {
+        self.command_tx.send(MixerCommand::StartMainRecording)?;
+        self.is_recording_main = true;
+        Ok(())
+    }
+    pub fn start_secondary_recording(&mut self) -> Result<(), SendError<MixerCommand>> {
+        self.command_tx
+            .send(MixerCommand::StartSecondaryRecording)?;
+        self.is_recording_secondary = true;
         Ok(())
     }
     pub fn stop_playback(&mut self) -> Result<(), SendError<MixerCommand>> {
@@ -83,21 +113,32 @@ impl MixerController {
         Ok(())
     }
 
-    pub fn get_recording(&mut self) -> Vec<f32> {
-        self.recording_rx.try_iter().collect()
+    pub fn get_main_recording(&mut self) -> Vec<f32> {
+        self.main_recording_rx.try_iter().collect()
+    }
+    pub fn get_secondary_recording(&mut self) -> Vec<f32> {
+        self.secondary_recording_rx.try_iter().collect()
     }
 
-    pub fn stop_recording(&mut self) -> Result<Vec<f32>, SendError<MixerCommand>> {
-        self.command_tx.send(MixerCommand::StopRecording)?;
-        self.is_recording = false;
-        Ok(self.get_recording())
+    pub fn stop_main_recording(&mut self) -> Result<Vec<f32>, SendError<MixerCommand>> {
+        self.command_tx.send(MixerCommand::StopMainRecording)?;
+        self.is_recording_main = false;
+        Ok(self.get_main_recording())
+    }
+    pub fn stop_secondary_recording(&mut self) -> Result<Vec<f32>, SendError<MixerCommand>> {
+        self.command_tx.send(MixerCommand::StopSecondaryRecording)?;
+        self.is_recording_secondary = false;
+        Ok(self.get_secondary_recording())
     }
 
     pub fn held_sources(&self) -> &IndexSet<KeyCode> {
         &self.held_sources
     }
-    pub fn is_recording(&self) -> bool {
-        self.is_recording
+    pub fn is_recording_main(&self) -> bool {
+        self.is_recording_main
+    }
+    pub fn is_recording_secondary(&self) -> bool {
+        self.is_recording_secondary
     }
 }
 
@@ -105,22 +146,28 @@ pub struct Mixer {
     command_rx: Receiver<MixerCommand>,
     regular_sources: Vec<Peekable<SamplesBuffer<f32>>>,
     held_sources: HashMap<KeyCode, Peekable<Repeat<SamplesBuffer<f32>>>>,
-    is_recording: bool,
-    recording_tx: Sender<f32>,
+    is_recording_main: bool,
+    is_recording_secondary: bool,
+    main_recording_tx: Sender<f32>,
+    secondary_recording_tx: Sender<f32>,
 }
 
 impl Mixer {
     fn new(
-        is_recording: bool,
+        is_recording_main: bool,
+        is_recording_secondary: bool,
         event_rx: Receiver<MixerCommand>,
-        recording_tx: Sender<f32>,
+        main_recording_tx: Sender<f32>,
+        secondary_recording_tx: Sender<f32>,
     ) -> Self {
         Mixer {
             command_rx: event_rx,
             regular_sources: Vec::default(),
             held_sources: HashMap::default(),
-            is_recording,
-            recording_tx,
+            is_recording_main,
+            is_recording_secondary,
+            main_recording_tx,
+            secondary_recording_tx,
         }
     }
 
@@ -138,8 +185,11 @@ impl Mixer {
                     self.held_sources.insert(k, s.repeat_infinite().peekable());
                 }
             }
-            MixerCommand::Start => {
-                self.is_recording = true;
+            MixerCommand::StartMainRecording => {
+                self.is_recording_main = true;
+            }
+            MixerCommand::StartSecondaryRecording => {
+                self.is_recording_secondary = true;
             }
             MixerCommand::StopPlayback => {
                 self.regular_sources.clear();
@@ -147,8 +197,11 @@ impl Mixer {
                 self.regular_sources.shrink_to_fit();
                 self.held_sources.shrink_to_fit();
             }
-            MixerCommand::StopRecording => {
-                self.is_recording = false;
+            MixerCommand::StopMainRecording => {
+                self.is_recording_main = false;
+            }
+            MixerCommand::StopSecondaryRecording => {
+                self.is_recording_secondary = false;
             }
         });
     }
@@ -177,8 +230,11 @@ impl Iterator for Mixer {
             .sum::<f32>()
             .clamp(-1.0, 1.0);
 
-        if self.is_recording {
-            self.recording_tx.send(sample).unwrap();
+        if self.is_recording_main {
+            self.main_recording_tx.send(sample).unwrap();
+        }
+        if self.is_recording_secondary {
+            self.secondary_recording_tx.send(sample).unwrap();
         }
 
         Some(sample)

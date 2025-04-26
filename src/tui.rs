@@ -1,6 +1,7 @@
 use std::mem;
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use indexmap::IndexSet;
 use ratatui::{
     DefaultTerminal,
     buffer::Buffer,
@@ -11,19 +12,21 @@ use ratatui::{
 
 use crate::uauauiua::Uauauiua;
 
-const RECORD_KEY: KeyCode = KeyCode::Enter;
+const MAIN_RECORD_KEY: KeyCode = KeyCode::Enter;
+const SECONDARY_RECORD_KEY: KeyCode = KeyCode::Char('\\');
 const RELOAD_KEY: KeyCode = KeyCode::Tab;
 const STOP_PLAYBACK_KEY: KeyCode = KeyCode::Backspace;
 const EXIT_KEY: KeyCode = KeyCode::Esc;
 const REINIT_AUDIO_KEY: KeyCode = KeyCode::Home;
-const CLEAR_STACK_KEY: KeyCode = KeyCode::Delete;
+const CLEAR_STACK_KEY: KeyCode = KeyCode::Backspace;
+const CLEAR_RECORDINGS_KEY: KeyCode = KeyCode::Delete;
 const HOLD_MODIFIER: KeyModifiers = KeyModifiers::SHIFT;
 
 enum Mode {
     Loading,
     Jam,
-    Record,
-    Save(Vec<f32>),
+    SaveMain(Vec<f32>),
+    SaveSecondary(Vec<f32>),
 }
 
 pub struct Tui {
@@ -47,14 +50,20 @@ impl Default for Tui {
 }
 
 impl Tui {
-    pub fn handle_result<T>(&mut self, r: Result<T, anyhow::Error>) {
+    fn draw(&self, terminal: &mut DefaultTerminal) {
+        terminal
+            .draw(|f| f.render_widget(self, f.area()))
+            .expect("should have drawn terminal");
+    }
+
+    fn handle_result<T>(&mut self, r: Result<T, anyhow::Error>) {
         if let Err(e) = r {
             self.last_error = Some(e);
         }
     }
 
     pub fn run(mut self, mut terminal: DefaultTerminal) {
-        self.load(&mut terminal);
+        self.load_uiua(&mut terminal);
 
         'main: loop {
             self.draw(&mut terminal);
@@ -63,11 +72,7 @@ impl Tui {
 
             loop {
                 if let Event::Key(e) = event::read().expect("should have handled terminal event") {
-                    let key = if let KeyCode::Char(c) = e.code {
-                        KeyCode::Char(c.to_ascii_lowercase())
-                    } else {
-                        e.code
-                    };
+                    let key = e.code;
                     let modifiers = e.modifiers;
 
                     if let KeyEventKind::Press = e.kind {
@@ -83,18 +88,19 @@ impl Tui {
         }
     }
 
-    fn load(&mut self, terminal: &mut DefaultTerminal) {
+    fn load_closure(
+        &mut self,
+        terminal: &mut DefaultTerminal,
+        f: impl Fn(&mut Uauauiua) -> anyhow::Result<()>,
+    ) {
         let current_mode = mem::replace(&mut self.mode, Mode::Loading);
         self.draw(terminal);
-        let r = self.uauauiua.load();
+        let r = f(&mut self.uauauiua);
         self.handle_result(r);
         self.mode = current_mode;
     }
-
-    fn draw(&self, terminal: &mut DefaultTerminal) {
-        terminal
-            .draw(|f| f.render_widget(self, f.area()))
-            .expect("should have drawn terminal");
+    fn load_uiua(&mut self, terminal: &mut DefaultTerminal) {
+        self.load_closure(terminal, Uauauiua::load);
     }
 
     fn handle_key_press(
@@ -103,9 +109,41 @@ impl Tui {
         modifiers: KeyModifiers,
         terminal: &mut DefaultTerminal,
     ) -> anyhow::Result<()> {
-        match (&self.mode, key) {
+        let lower_key = if let KeyCode::Char(c) = key {
+            KeyCode::Char(c.to_ascii_lowercase())
+        } else {
+            key
+        };
+        match (&mut self.mode, key) {
+            (Mode::SaveMain(_) | Mode::SaveSecondary(_), key) if key == EXIT_KEY => {
+                self.mode = Mode::Jam;
+            }
+            (Mode::SaveMain(v), KeyCode::Enter) => {
+                if self.input.is_empty() {
+                    return Ok(());
+                }
+                let input = mem::take(&mut self.input);
+                let recording = mem::take(v);
+                self.uauauiua.save_main_recording(&recording, &input)?;
+                self.mode = Mode::Jam;
+            }
+            (Mode::SaveSecondary(v), KeyCode::Enter) => {
+                if self.input.is_empty() {
+                    return Ok(());
+                }
+                let input = mem::take(&mut self.input);
+                let recording = mem::take(v);
+                self.uauauiua.save_secondary_recording(&recording, &input);
+                self.mode = Mode::Jam;
+            }
+            (Mode::SaveMain(_) | Mode::SaveSecondary(_), KeyCode::Char(c)) => {
+                self.input.push(c);
+            }
+            (Mode::SaveMain(_) | Mode::SaveSecondary(_), KeyCode::Backspace) => {
+                self.input.pop();
+            }
             (_, key) if key == RELOAD_KEY => {
-                self.load(terminal);
+                self.load_uiua(terminal);
             }
             (_, key) if key == REINIT_AUDIO_KEY => {
                 self.uauauiua.reinit_audio();
@@ -113,36 +151,35 @@ impl Tui {
             (_, key) if key == CLEAR_STACK_KEY => {
                 self.uauauiua.clear_stack();
             }
-            (Mode::Jam, key) if key == RECORD_KEY => {
-                self.uauauiua.start_recording()?;
-                self.mode = Mode::Record;
+            (_, key) if key == CLEAR_RECORDINGS_KEY => {
+                self.uauauiua.clear_recordings();
             }
-            (Mode::Jam, key) if key == EXIT_KEY => {
+            (Mode::Jam, key) if key == MAIN_RECORD_KEY && self.uauauiua.is_recording_main() => {
+                self.mode = Mode::SaveMain(self.uauauiua.stop_main_recording_and_playback()?);
+            }
+            (Mode::Jam, key)
+                if key == SECONDARY_RECORD_KEY && self.uauauiua.is_recording_secondary() =>
+            {
+                self.mode =
+                    Mode::SaveSecondary(self.uauauiua.stop_secondary_recording_and_playback()?);
+            }
+            (_, key) if key == MAIN_RECORD_KEY => {
+                self.uauauiua.start_main_recording()?;
+            }
+            (_, key) if key == SECONDARY_RECORD_KEY => {
+                self.uauauiua.start_secondary_recording()?;
+            }
+            (_, key) if key == EXIT_KEY => {
                 self.exiting = true;
-                self.uauauiua.stop_recording_and_playback()?;
+                self.uauauiua.stop_main_recording_and_playback()?;
             }
-            (Mode::Record, key) if key == RECORD_KEY => {
-                self.mode = Mode::Save(self.uauauiua.stop_recording_and_playback()?);
-            }
-            (Mode::Jam | Mode::Record, key) if key == STOP_PLAYBACK_KEY => {
+            (_, key) if key == STOP_PLAYBACK_KEY => {
                 self.uauauiua.stop_playback()?;
             }
-            (Mode::Jam | Mode::Record, key) => {
+            (_, _) => {
                 self.uauauiua
-                    .add_to_mixer(key, modifiers.contains(HOLD_MODIFIER))?;
+                    .add_to_mixer(lower_key, modifiers.contains(HOLD_MODIFIER))?;
             }
-            (Mode::Save(v), KeyCode::Enter) => {
-                self.uauauiua
-                    .save_recording(v, &mem::take(&mut self.input))?;
-                self.mode = Mode::Jam;
-            }
-            (Mode::Save(_), KeyCode::Char(c)) => {
-                self.input.push(c);
-            }
-            (Mode::Save(_), KeyCode::Backspace) => {
-                self.input.pop();
-            }
-            _ => {}
         }
         Ok(())
     }
@@ -150,43 +187,65 @@ impl Tui {
 
 impl Widget for &Tui {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        fn join_set(x: &IndexSet<impl ToString>) -> String {
+            x.iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(" ")
+        }
+
+        let main_text = Text::raw(format!("Press {MAIN_RECORD_KEY} to stop main recording"));
+        let secondary_text = Text::raw(format!(
+            "Press {SECONDARY_RECORD_KEY} to stop secondary recording"
+        ));
         let mut t = match self.mode {
             Mode::Loading => Text::raw("Loading..."),
-            Mode::Jam => Text::raw(format!(
-                "Press {RECORD_KEY} to start recording, \
-                {RELOAD_KEY} to reload the file, \
-                {STOP_PLAYBACK_KEY} to stop playback,\n\
-                {REINIT_AUDIO_KEY} to reinitialize audio, \
-                {CLEAR_STACK_KEY} to clear the stack, \
-                or {EXIT_KEY} to exit\n\n"
-            )),
-            Mode::Record => Text::raw(format!("Press {RECORD_KEY} to stop recording")),
-            Mode::Save(_) => Text::raw(format!(
-                "Enter name (leave blank to discard): {}_",
+            Mode::Jam => {
+                let main = self.uauauiua.is_recording_main();
+                let secondary = self.uauauiua.is_recording_secondary();
+
+                if !main && !secondary {
+                    Text::raw(format!(
+                        "Press {MAIN_RECORD_KEY} to start file recording, \
+                        {SECONDARY_RECORD_KEY} to start Uiua recording,\n\
+                        {RELOAD_KEY} to reload the file, \
+                        {STOP_PLAYBACK_KEY} to stop playback,\n\
+                        {REINIT_AUDIO_KEY} to reinitialize audio, \
+                        {CLEAR_STACK_KEY} to clear the stack,\n\
+                        {CLEAR_RECORDINGS_KEY} to clear recordings, \
+                        or {EXIT_KEY} to exit\n\n"
+                    ))
+                } else if main && secondary {
+                    main_text + secondary_text
+                } else if main {
+                    main_text
+                } else {
+                    secondary_text
+                }
+            }
+            Mode::SaveMain(_) | Mode::SaveSecondary(_) => Text::raw(format!(
+                "Enter name (press {EXIT_KEY} to discard): {}_",
                 self.input
             )),
         };
+
         t += Line::raw(format!(
             "Defined sources: [{}]",
-            self.uauauiua
-                .defined_sources()
-                .iter()
-                .map(std::string::ToString::to_string)
-                .collect::<Vec<String>>()
-                .join(", ")
+            join_set(&self.uauauiua.defined_sources())
         ));
         t += Line::raw(format!(
             "Held sources: [{}]",
-            self.uauauiua
-                .held_sources()
-                .iter()
-                .map(std::string::ToString::to_string)
-                .collect::<Vec<String>>()
-                .join(", ")
+            join_set(self.uauauiua.held_sources())
         ));
+        t += Line::raw(format!(
+            "Recordings: [{}]",
+            join_set(&self.uauauiua.secondary_recording_names())
+        ));
+
         if let Some(e) = &self.last_error {
             t += Line::raw(format!("Error: {e}"));
         }
+
         let stack = self.uauauiua.stack();
         if stack.is_empty() {
             t += Line::raw("Stack is empty");
@@ -195,7 +254,7 @@ impl Widget for &Tui {
                 "Stack:\n{}",
                 stack
                     .iter()
-                    .map(std::string::ToString::to_string)
+                    .map(ToString::to_string)
                     .collect::<Vec<_>>()
                     .join("\n")
             ));
