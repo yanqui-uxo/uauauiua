@@ -15,7 +15,7 @@ use crate::uauauiua::Uauauiua;
 const MAIN_RECORD_KEY: KeyCode = KeyCode::Enter;
 const SECONDARY_RECORD_KEY: KeyCode = KeyCode::Char('\\');
 const RELOAD_KEY: KeyCode = KeyCode::Tab;
-const STOP_PLAYBACK_KEY: KeyCode = KeyCode::Backspace;
+const STOP_PLAYBACK_KEY: KeyCode = KeyCode::End;
 const EXIT_KEY: KeyCode = KeyCode::Esc;
 const REINIT_AUDIO_KEY: KeyCode = KeyCode::Home;
 const CLEAR_STACK_KEY: KeyCode = KeyCode::Backspace;
