@@ -93,6 +93,12 @@ impl Default for UiuaExtension {
 impl UiuaExtension {
     pub fn load(&mut self) -> anyhow::Result<()> {
         self.uiua.compile_run(|c| {
+            // TODO: change signature to (0, 1) after bug is fixed
+            // currently if signature is (0, 1) function is treated as constant
+            c.create_bind_function("StackSize", (1, 2), |u| {
+                u.push(u.stack().len());
+                Ok(())
+            })?;
             for (name, value) in self.new_values.clone() {
                 c.create_bind_function(name, (0, 1), move |u| {
                     u.push(value.clone());
