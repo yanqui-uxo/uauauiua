@@ -102,21 +102,19 @@ impl Uauauiua {
             .map_err(|_| anyhow!("could not stop playback"))
     }
 
-    pub fn stop_main_recording_and_playback(&mut self) -> anyhow::Result<Vec<f32>> {
+    pub fn stop_main_recording(&mut self) -> anyhow::Result<Vec<f32>> {
         let ret = self
             .mixer_controller_mut()
             .stop_main_recording()
             .map_err(|_| anyhow!("could not stop main recording"));
-        self.stop_playback()?;
         ret
     }
 
-    pub fn stop_secondary_recording_and_playback(&mut self) -> anyhow::Result<Vec<f32>> {
+    pub fn stop_secondary_recording(&mut self) -> anyhow::Result<Vec<f32>> {
         let ret = self
             .mixer_controller_mut()
             .stop_secondary_recording()
             .map_err(|_| anyhow!("could not stop secondary recording"));
-        self.stop_playback()?;
         ret
     }
 
@@ -153,9 +151,11 @@ impl Uauauiua {
         self.uiua_extension.clear_stack();
     }
 
+    /*
     pub fn clear_recordings(&mut self) {
-        self.uiua_extension.clear_new_values();
+        self.uiua_extension.clear_recordings();
     }
+    */
 
     pub fn save_main_recording(&mut self, recording: &[f32], name: &str) -> anyhow::Result<()> {
         if name.is_empty() {
@@ -183,7 +183,13 @@ impl Uauauiua {
         Ok(())
     }
 
-    pub fn save_secondary_recording(&mut self, recording: &[f32], name: &str) {
+    pub fn save_secondary_recording(
+        &mut self,
+        recording: &[f32],
+        name: &str,
+    ) -> anyhow::Result<()> {
+        self.save_main_recording(recording, name)
+        /*
         if name.is_empty() {
             return;
         }
@@ -196,7 +202,8 @@ impl Uauauiua {
         let mut recording_value: Value = recording.into_iter().map(f64::from).collect();
         *recording_value.shape_mut() = [len / CHANNEL_NUM as usize, CHANNEL_NUM as usize].into();
 
-        self.uiua_extension.add_value(name, recording_value);
+        self.uiua_extension.add_recording(name, recording_value);
+        */
     }
 
     pub fn defined_sources(&self) -> IndexSet<KeyCode> {
@@ -207,9 +214,11 @@ impl Uauauiua {
         self.mixer_controller().held_sources()
     }
 
+    /*
     pub fn secondary_recording_names(&self) -> IndexSet<String> {
         self.uiua_extension.new_value_names()
     }
+    */
 
     pub fn stack(&self) -> &[Value] {
         self.uiua_extension.stack()

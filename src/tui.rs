@@ -19,7 +19,7 @@ const STOP_PLAYBACK_KEY: KeyCode = KeyCode::End;
 const EXIT_KEY: KeyCode = KeyCode::Esc;
 const REINIT_AUDIO_KEY: KeyCode = KeyCode::Home;
 const CLEAR_STACK_KEY: KeyCode = KeyCode::Backspace;
-const CLEAR_RECORDINGS_KEY: KeyCode = KeyCode::Delete;
+//const CLEAR_RECORDINGS_KEY: KeyCode = KeyCode::Delete;
 const HOLD_MODIFIER: KeyModifiers = KeyModifiers::SHIFT;
 
 enum Mode {
@@ -126,7 +126,7 @@ impl Tui {
                 }
                 let input = mem::take(&mut self.input);
                 let recording = mem::take(v);
-                self.uauauiua.save_secondary_recording(&recording, &input);
+                self.uauauiua.save_secondary_recording(&recording, &input)?;
                 self.mode = Mode::Jam;
             }
             (Mode::SaveMain(_) | Mode::SaveSecondary(_), KeyCode::Char(c)) => {
@@ -144,17 +144,18 @@ impl Tui {
             (_, key) if key == CLEAR_STACK_KEY => {
                 self.uauauiua.clear_stack();
             }
+            /*
             (_, key) if key == CLEAR_RECORDINGS_KEY => {
                 self.uauauiua.clear_recordings();
             }
+            */
             (Mode::Jam, key) if key == MAIN_RECORD_KEY && self.uauauiua.is_recording_main() => {
-                self.mode = Mode::SaveMain(self.uauauiua.stop_main_recording_and_playback()?);
+                self.mode = Mode::SaveMain(self.uauauiua.stop_main_recording()?);
             }
             (Mode::Jam, key)
                 if key == SECONDARY_RECORD_KEY && self.uauauiua.is_recording_secondary() =>
             {
-                self.mode =
-                    Mode::SaveSecondary(self.uauauiua.stop_secondary_recording_and_playback()?);
+                self.mode = Mode::SaveSecondary(self.uauauiua.stop_secondary_recording()?);
             }
             (_, key) if key == MAIN_RECORD_KEY => {
                 self.uauauiua.start_main_recording()?;
@@ -164,7 +165,7 @@ impl Tui {
             }
             (_, key) if key == EXIT_KEY => {
                 self.exiting = true;
-                self.uauauiua.stop_main_recording_and_playback()?;
+                self.uauauiua.stop_main_recording()?;
             }
             (_, key) if key == STOP_PLAYBACK_KEY => {
                 self.uauauiua.stop_playback()?;
@@ -199,13 +200,12 @@ impl Widget for &Tui {
 
                 if !main && !secondary {
                     Text::raw(format!(
-                        "Press {MAIN_RECORD_KEY} to start file recording, \
-                        {SECONDARY_RECORD_KEY} to start Uiua recording,\n\
+                        "Press {MAIN_RECORD_KEY} to start main recording, \
+                        {SECONDARY_RECORD_KEY} to start secondary recording,\n\
                         {RELOAD_KEY} to reload the file, \
                         {STOP_PLAYBACK_KEY} to stop playback,\n\
                         {REINIT_AUDIO_KEY} to reinitialize audio, \
                         {CLEAR_STACK_KEY} to clear the stack,\n\
-                        {CLEAR_RECORDINGS_KEY} to clear recordings, \
                         or {EXIT_KEY} to exit\n\n"
                     ))
                 } else if main && secondary {
@@ -230,10 +230,12 @@ impl Widget for &Tui {
             "Held sources: [{}]",
             join_set(self.uauauiua.held_sources())
         ));
+        /*
         t += Line::raw(format!(
             "Recordings: [{}]",
             join_set(&self.uauauiua.secondary_recording_names())
         ));
+        */
 
         if let Some(e) = &self.last_error {
             t += Line::raw(format!("Error: {e}"));
