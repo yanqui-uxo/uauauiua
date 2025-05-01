@@ -1,6 +1,6 @@
 # HOW TO UAUAUIUA
 
-if you want to install this locally clone this repo and run `cargo install --locked --path .` in the repo directory. i'm probably not gonna add this to crates.io
+if you want to install this locally run `cargo install --locked --git https://github.com/yanqui-uxo/uauauiua.git`. i'm probably not gonna add this to crates.io
 
 write your uiua code in main.ua
 
