@@ -8,7 +8,7 @@ use crossterm::event::KeyCode;
 use hound::{SampleFormat, WavSpec, WavWriter};
 use indexmap::IndexSet;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
-use uiua::Value;
+use uiua::{Array, Value};
 
 const RECORDINGS_DIR: &str = "recordings";
 
@@ -151,11 +151,9 @@ impl Uauauiua {
         self.uiua_extension.clear_stack();
     }
 
-    /*
     pub fn clear_recordings(&mut self) {
         self.uiua_extension.clear_recordings();
     }
-    */
 
     pub fn save_main_recording(&mut self, recording: &[f32], name: &str) -> anyhow::Result<()> {
         if name.is_empty() {
@@ -183,13 +181,7 @@ impl Uauauiua {
         Ok(())
     }
 
-    pub fn save_secondary_recording(
-        &mut self,
-        recording: &[f32],
-        name: &str,
-    ) -> anyhow::Result<()> {
-        self.save_main_recording(recording, name)
-        /*
+    pub fn save_secondary_recording(&mut self, recording: &[f32], name: &str) {
         if name.is_empty() {
             return;
         }
@@ -199,11 +191,11 @@ impl Uauauiua {
             .chain(recording.iter().copied())
             .collect();
         let len = recording.len();
-        let mut recording_value: Value = recording.into_iter().map(f64::from).collect();
-        *recording_value.shape_mut() = [len / CHANNEL_NUM as usize, CHANNEL_NUM as usize].into();
+        let mut recording_array: Array<f64> = recording.into_iter().map(f64::from).collect();
+        recording_array.shape = [len / CHANNEL_NUM as usize, CHANNEL_NUM as usize].into();
 
-        self.uiua_extension.add_recording(name, recording_value);
-        */
+        self.uiua_extension
+            .add_recording(name, recording_array.into());
     }
 
     pub fn defined_sources(&self) -> IndexSet<KeyCode> {
@@ -214,11 +206,9 @@ impl Uauauiua {
         self.mixer_controller().held_sources()
     }
 
-    /*
     pub fn secondary_recording_names(&self) -> IndexSet<String> {
         self.uiua_extension.new_value_names()
     }
-    */
 
     pub fn stack(&self) -> &[Value] {
         self.uiua_extension.stack()

@@ -3,12 +3,10 @@ use crate::recording::{CHANNEL_NUM, SAMPLE_RATE};
 
 use anyhow::{anyhow, bail, ensure};
 use crossterm::event::KeyCode;
-//use indexmap::{IndexMap, IndexSet};
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use rodio::buffer::SamplesBuffer;
 use std::time::Duration;
-//use uiua::{Boxed, Uiua, Value};
-use uiua::{Uiua, Value};
+use uiua::{Boxed, Uiua, Value};
 
 pub const MAIN_PATH: &str = "main.ua";
 const KEY_MAP_NAME: &str = "OnPress";
@@ -23,10 +21,10 @@ fn value_to_source(value: &Value, key: char) -> anyhow::Result<SamplesBuffer<f32
         _ => bail!("value for key '{key}' of {KEY_MAP_NAME} must be non-complex numeric"),
     };
 
-    let shape = array.shape();
     ensure!(
-        array.rank() == 2 && shape.dims()[1] == CHANNEL_NUM as usize,
-        "shape {shape} for key '{key}' of {KEY_MAP_NAME} is not of form [n {CHANNEL_NUM}]",
+        array.rank() == 2 && array.shape.dims()[1] == CHANNEL_NUM as usize,
+        "shape {} for key '{key}' of {KEY_MAP_NAME} is not of form [n {CHANNEL_NUM}]",
+        array.shape
     );
 
     #[allow(clippy::cast_possible_truncation)]
@@ -78,7 +76,7 @@ fn get_key_sources(uiua: &mut Uiua) -> anyhow::Result<IndexMap<KeyCode, SamplesB
 pub struct UiuaExtension {
     uiua: Uiua,
     key_sources: IndexMap<KeyCode, SamplesBuffer<f32>>,
-    //recordings: IndexMap<String, Value>,
+    recordings: IndexMap<String, Value>,
 }
 
 impl Default for UiuaExtension {
@@ -87,17 +85,13 @@ impl Default for UiuaExtension {
             uiua: Uiua::with_backend(LimitedBackend)
                 .with_execution_limit(Duration::from_secs(EXECUTION_TIME_LIMIT)),
             key_sources: IndexMap::default(),
-            //recordings: IndexMap::default(),
+            recordings: IndexMap::default(),
         }
     }
 }
 
 impl UiuaExtension {
     pub fn load(&mut self) -> anyhow::Result<()> {
-        self.uiua.run_file(MAIN_PATH)?;
-
-        // TODO: replace secondary file saving with Uiua saving when bug is fixed
-        /*
         let keys: Value = self.recordings.keys().cloned().collect();
         let mut map: Value = self.recordings.values().cloned().map(Boxed).collect();
         map.map(keys, &self.uiua)?;
@@ -110,7 +104,6 @@ impl UiuaExtension {
             c.load_file(MAIN_PATH)?;
             Ok(c)
         })?;
-        */
 
         self.key_sources = get_key_sources(&mut self.uiua)?;
 
@@ -121,11 +114,9 @@ impl UiuaExtension {
         &self.key_sources
     }
 
-    /*
     pub fn new_value_names(&self) -> IndexSet<String> {
         self.recordings.keys().cloned().collect()
     }
-    */
 
     pub fn stack(&self) -> &[Value] {
         self.uiua.stack()
@@ -135,14 +126,11 @@ impl UiuaExtension {
         self.uiua.take_stack();
     }
 
-    /*
     pub fn add_recording(&mut self, name: &str, value: Value) {
         self.recordings.insert(name.to_string(), value);
     }
 
-
     pub fn clear_recordings(&mut self) {
         self.recordings.clear();
     }
-    */
 }
