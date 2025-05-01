@@ -10,6 +10,8 @@ press the key to make the sound
 
 press shift+key to repeat the sound, shift+key again to stop repeating
 
-recordings are saved in /recordings/[name].wav
+file recordings are saved in /recordings/[name].wav
+
+uiua recordings are saved in the `Recordings` map
 
 wawaweewah
