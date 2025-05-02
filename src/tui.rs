@@ -65,7 +65,11 @@ impl Tui {
     pub fn run(mut self, mut terminal: DefaultTerminal) {
         self.load_uiua(&mut terminal);
 
-        'main: loop {
+        loop {
+            if self.exiting {
+                return;
+            }
+
             self.draw(&mut terminal);
 
             self.last_error = None;
@@ -80,9 +84,6 @@ impl Tui {
                         self.handle_result(r);
                         break;
                     }
-                }
-                if self.exiting {
-                    break 'main;
                 }
             }
         }
