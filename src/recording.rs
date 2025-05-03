@@ -14,6 +14,7 @@ use rodio::{Source, buffer::SamplesBuffer, source::Repeat};
 use uiua::{NativeSys, SysBackend};
 
 pub const CHANNEL_NUM: u16 = 2;
+pub static SAMPLE_RATE: LazyLock<u32> = LazyLock::new(|| NativeSys.audio_sample_rate());
 
 pub fn new_mixer(
     is_recording_main: bool,
@@ -39,8 +40,6 @@ pub fn new_mixer(
         ),
     )
 }
-
-pub static SAMPLE_RATE: LazyLock<u32> = LazyLock::new(|| NativeSys.audio_sample_rate());
 
 pub enum MixerCommand {
     Source(SamplesBuffer<f32>),

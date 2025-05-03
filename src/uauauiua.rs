@@ -1,3 +1,4 @@
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, mem};
 
 use crate::recording::{CHANNEL_NUM, MixerController, SAMPLE_RATE, new_mixer};
@@ -156,10 +157,6 @@ impl Uauauiua {
     }
 
     pub fn save_main_recording(&mut self, recording: &[f32], name: &str) -> anyhow::Result<()> {
-        if name.is_empty() {
-            return Ok(());
-        }
-
         let mut recording_iter = mem::take(&mut self.partial_main_recording)
             .into_iter()
             .chain(recording.iter().copied());
@@ -182,9 +179,15 @@ impl Uauauiua {
     }
 
     pub fn save_secondary_recording(&mut self, recording: &[f32], name: &str) {
-        if name.is_empty() {
-            return;
-        }
+        let name = if name.is_empty() {
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_micros()
+                .to_string()
+        } else {
+            name.to_string()
+        };
 
         let recording: Vec<f32> = mem::take(&mut self.partial_secondary_recording)
             .into_iter()
@@ -195,7 +198,7 @@ impl Uauauiua {
         recording_array.shape = [len / CHANNEL_NUM as usize, CHANNEL_NUM as usize].into();
 
         self.uiua_extension
-            .add_recording(name, recording_array.into());
+            .add_recording(&name, recording_array.into());
     }
 
     pub fn defined_sources(&self) -> IndexSet<KeyCode> {

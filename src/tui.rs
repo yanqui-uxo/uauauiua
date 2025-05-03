@@ -65,11 +65,7 @@ impl Tui {
     pub fn run(mut self, mut terminal: DefaultTerminal) {
         self.load_uiua(&mut terminal);
 
-        loop {
-            if self.exiting {
-                return;
-            }
-
+        'main: loop {
             self.draw(&mut terminal);
 
             self.last_error = None;
@@ -81,6 +77,11 @@ impl Tui {
 
                     if let KeyEventKind::Press = e.kind {
                         let r = self.handle_key_press(key, modifiers, &mut terminal);
+
+                        if self.exiting {
+                            break 'main;
+                        }
+
                         self.handle_result(r);
                         break;
                     }
@@ -122,9 +123,6 @@ impl Tui {
                 self.mode = Mode::Jam;
             }
             (Mode::SaveSecondary(v), KeyCode::Enter) => {
-                if self.input.is_empty() {
-                    return Ok(());
-                }
                 let input = mem::take(&mut self.input);
                 let recording = mem::take(v);
                 self.uauauiua.save_secondary_recording(&recording, &input);
@@ -164,7 +162,6 @@ impl Tui {
             }
             (_, key) if key == EXIT_KEY => {
                 self.exiting = true;
-                self.uauauiua.stop_main_recording()?;
             }
             (_, key) if key == STOP_PLAYBACK_KEY => {
                 self.uauauiua.stop_playback()?;
@@ -187,9 +184,9 @@ impl Widget for &Tui {
                 .join(" ")
         }
 
-        let main_text = Text::raw(format!("Press {MAIN_RECORD_KEY} to stop main recording"));
+        let main_text = Text::raw(format!("Press {MAIN_RECORD_KEY} to stop file recording"));
         let secondary_text = Text::raw(format!(
-            "Press {SECONDARY_RECORD_KEY} to stop secondary recording"
+            "Press {SECONDARY_RECORD_KEY} to stop Uiua recording"
         ));
         let mut t = match self.mode {
             Mode::Loading => Text::raw("Loading..."),
@@ -199,8 +196,8 @@ impl Widget for &Tui {
 
                 if !main && !secondary {
                     Text::raw(format!(
-                        "Press {MAIN_RECORD_KEY} to start main recording, \
-                        {SECONDARY_RECORD_KEY} to start secondary recording,\n\
+                        "Press {MAIN_RECORD_KEY} to start file recording, \
+                        {SECONDARY_RECORD_KEY} to start Uiua recording,\n\
                         {RELOAD_KEY} to reload the file, \
                         {STOP_PLAYBACK_KEY} to stop playback, \
                         {REINIT_AUDIO_KEY} to reinitialize audio,\n\
@@ -216,8 +213,12 @@ impl Widget for &Tui {
                     secondary_text
                 }
             }
-            Mode::SaveMain(_) | Mode::SaveSecondary(_) => Text::raw(format!(
+            Mode::SaveMain(_) => Text::raw(format!(
                 "Enter name (press {EXIT_KEY} to discard): {}_",
+                self.input
+            )),
+            Mode::SaveSecondary(_) => Text::raw(format!(
+                "Enter name (press {EXIT_KEY} to discard, leave blank for timestamp): {}_",
                 self.input
             )),
         };
