@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, mem};
 
-use crate::recording::{CHANNEL_NUM, MixerController, SAMPLE_RATE, new_mixer};
+use crate::recording::{CHANNEL_COUNT, MixerController, SAMPLE_RATE, new_mixer};
 use crate::uiua_extension::UiuaExtension;
 
 use anyhow::{anyhow, ensure};
@@ -120,6 +120,12 @@ impl Uauauiua {
     }
 
     pub fn add_to_mixer(&mut self, key: KeyCode, toggle_hold: bool) -> anyhow::Result<()> {
+        let key = if let KeyCode::Char(c) = key {
+            KeyCode::Char(c.to_ascii_lowercase())
+        } else {
+            key
+        };
+
         let source = self
             .uiua_extension
             .key_sources()
@@ -127,8 +133,8 @@ impl Uauauiua {
             .ok_or(anyhow!("key {key} not recognized"))?;
 
         ensure!(
-            source.channels() == CHANNEL_NUM,
-            "incorrect number of channels; expected {CHANNEL_NUM}"
+            source.channels() == CHANNEL_COUNT,
+            "incorrect number of channels; expected {CHANNEL_COUNT}"
         );
         ensure!(
             source.sample_rate() == *SAMPLE_RATE,
@@ -162,7 +168,7 @@ impl Uauauiua {
             .chain(recording.iter().copied());
 
         let spec = WavSpec {
-            channels: CHANNEL_NUM,
+            channels: CHANNEL_COUNT,
             sample_rate: *SAMPLE_RATE,
             bits_per_sample: 32,
             sample_format: SampleFormat::Float,
@@ -195,7 +201,7 @@ impl Uauauiua {
             .collect();
         let len = recording.len();
         let mut recording_array: Array<f64> = recording.into_iter().map(f64::from).collect();
-        recording_array.shape = [len / CHANNEL_NUM as usize, CHANNEL_NUM as usize].into();
+        recording_array.shape = [len / CHANNEL_COUNT as usize, CHANNEL_COUNT as usize].into();
 
         self.uiua_extension
             .add_recording(&name, recording_array.into());

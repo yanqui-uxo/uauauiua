@@ -104,11 +104,6 @@ impl Tui {
         modifiers: KeyModifiers,
         terminal: &mut DefaultTerminal,
     ) -> anyhow::Result<()> {
-        let lower_key = if let KeyCode::Char(c) = key {
-            KeyCode::Char(c.to_ascii_lowercase())
-        } else {
-            key
-        };
         match (&mut self.mode, key) {
             (Mode::SaveMain(_) | Mode::SaveSecondary(_), key) if key == EXIT_KEY => {
                 self.mode = Mode::Jam;
@@ -168,7 +163,7 @@ impl Tui {
             }
             (_, _) => {
                 self.uauauiua
-                    .add_to_mixer(lower_key, modifiers.contains(HOLD_MODIFIER))?;
+                    .add_to_mixer(key, modifiers.contains(HOLD_MODIFIER))?;
             }
         }
         Ok(())

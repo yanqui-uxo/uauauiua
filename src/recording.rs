@@ -13,7 +13,7 @@ use indexmap::IndexSet;
 use rodio::{Source, buffer::SamplesBuffer, source::Repeat};
 use uiua::{NativeSys, SysBackend};
 
-pub const CHANNEL_NUM: u16 = 2;
+pub const CHANNEL_COUNT: u16 = 2;
 pub static SAMPLE_RATE: LazyLock<u32> = LazyLock::new(|| NativeSys.audio_sample_rate());
 
 pub fn new_mixer(
@@ -246,7 +246,7 @@ impl Source for Mixer {
     }
 
     fn channels(&self) -> u16 {
-        CHANNEL_NUM
+        CHANNEL_COUNT
     }
 
     fn sample_rate(&self) -> u32 {

@@ -1,5 +1,5 @@
 use crate::limited_backend::LimitedBackend;
-use crate::recording::{CHANNEL_NUM, SAMPLE_RATE};
+use crate::recording::{CHANNEL_COUNT, SAMPLE_RATE};
 
 use anyhow::{anyhow, bail, ensure};
 use crossterm::event::KeyCode;
@@ -10,7 +10,7 @@ use uiua::{Boxed, Uiua, Value};
 
 pub const MAIN_PATH: &str = "main.ua";
 const KEY_MAP_NAME: &str = "OnPress";
-const EXECUTION_TIME_LIMIT: u64 = 5;
+const EXECUTION_TIME_LIMIT: Duration = Duration::from_secs(5);
 
 fn value_to_source(value: &Value, key: char) -> anyhow::Result<SamplesBuffer<f32>> {
     let value = value.clone().unpacked();
@@ -22,8 +22,8 @@ fn value_to_source(value: &Value, key: char) -> anyhow::Result<SamplesBuffer<f32
     };
 
     ensure!(
-        array.rank() == 2 && array.shape.dims()[1] == CHANNEL_NUM as usize,
-        "shape {} for key '{key}' of {KEY_MAP_NAME} is not of form [n {CHANNEL_NUM}]",
+        array.rank() == 2 && array.shape.dims()[1] == CHANNEL_COUNT as usize,
+        "shape {} for key '{key}' of {KEY_MAP_NAME} is not of form [n {CHANNEL_COUNT}]",
         array.shape
     );
 
@@ -32,7 +32,7 @@ fn value_to_source(value: &Value, key: char) -> anyhow::Result<SamplesBuffer<f32
 
     let array_vec: Vec<_> = array.elements().copied().collect();
 
-    Ok(SamplesBuffer::new(CHANNEL_NUM, *SAMPLE_RATE, array_vec))
+    Ok(SamplesBuffer::new(CHANNEL_COUNT, *SAMPLE_RATE, array_vec))
 }
 
 fn get_key_sources(uiua: &mut Uiua) -> anyhow::Result<IndexMap<KeyCode, SamplesBuffer<f32>>> {
@@ -82,8 +82,7 @@ pub struct UiuaExtension {
 impl Default for UiuaExtension {
     fn default() -> Self {
         Self {
-            uiua: Uiua::with_backend(LimitedBackend)
-                .with_execution_limit(Duration::from_secs(EXECUTION_TIME_LIMIT)),
+            uiua: Uiua::with_backend(LimitedBackend).with_execution_limit(EXECUTION_TIME_LIMIT),
             key_sources: IndexMap::default(),
             recordings: IndexMap::default(),
         }
